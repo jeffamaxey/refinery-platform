@@ -160,9 +160,7 @@ class ExtendedGroupSerializer(serializers.ModelSerializer):
     )
 
     def get_manager_group_uuid(self, group):
-        if group.is_manager_group():
-            return ''
-        return group.manager_group.uuid
+        return '' if group.is_manager_group() else group.manager_group.uuid
 
     def get_can_edit(self, group):
         user = self.context.get('user')
@@ -273,12 +271,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def validate_primary_group(self, group):
         user = self.context.get('request').user
-        if user.id in group.user_set.values_list('id', flat=True):
-            pass
-        else:
-            raise serializers.ValidationError(
-                'User is not a member of group, {}'.format(group)
-            )
+        if user.id not in group.user_set.values_list('id', flat=True):
+            raise serializers.ValidationError(f'User is not a member of group, {group}')
 
         if group.name != settings.REFINERY_PUBLIC_GROUP_NAME:
             return group

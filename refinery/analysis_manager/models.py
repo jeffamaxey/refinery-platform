@@ -51,7 +51,7 @@ class AnalysisStatus(models.Model):
         Set the `galaxy_history_state` of an analysis
         :param state: a valid GALAXY_HISTORY_STATE
         """
-        if state in dict(self.GALAXY_HISTORY_STATES).keys():
+        if state in dict(self.GALAXY_HISTORY_STATES):
             self.galaxy_history_state = state
             self.save()
         else:
@@ -62,7 +62,7 @@ class AnalysisStatus(models.Model):
         Set the `galaxy_import_state` of an analysis
         :param state: a valid GALAXY_HISTORY_STATE
         """
-        if state in dict(self.GALAXY_HISTORY_STATES).keys():
+        if state in dict(self.GALAXY_HISTORY_STATES):
             self.galaxy_import_state = state
             self.save()
         else:
@@ -75,14 +75,16 @@ class AnalysisStatus(models.Model):
             return get_task_group_state(self.refinery_import_task_group_id)
 
     def galaxy_file_import_state(self):
-        if self.galaxy_import_state and self.galaxy_import_progress != 0:
-            galaxy_file_import_state = [{
-                'state': self.galaxy_import_state,
-                'percent_done': self.galaxy_import_progress
-            }]
-        else:
-            galaxy_file_import_state = []
-        return galaxy_file_import_state
+        return (
+            [
+                {
+                    'state': self.galaxy_import_state,
+                    'percent_done': self.galaxy_import_progress,
+                }
+            ]
+            if self.galaxy_import_state and self.galaxy_import_progress != 0
+            else []
+        )
 
     def galaxy_analysis_state(self):
         if self.galaxy_history_state and self.galaxy_history_progress:

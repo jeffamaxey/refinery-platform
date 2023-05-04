@@ -88,7 +88,7 @@ class NodeCollection(models.Model):
         Returns normalized date string if in expected unnormalized format or
         unnormalized date string.
         """
-        logger.info("Converting date " + str(dateString) + " ...")
+        logger.info(f"Converting date {str(dateString)} ...")
         try:
             # try reformatting incorrect date format used by Nature Scientific
             # Data
@@ -104,7 +104,7 @@ class NodeCollection(models.Model):
         except ValueError:
             # ignore - date either in correct format or in format not supported
             # (will cause a validation error handled separately)
-            logger.info("Failed to convert date " + str(dateString))
+            logger.info(f"Failed to convert date {str(dateString)}")
             return dateString
 
 
@@ -121,7 +121,7 @@ class Publication(models.Model):
     status_source = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return str(self.authors) + ": " + str(self.title)
+        return f"{str(self.authors)}: {str(self.title)}"
 
 
 class Contact(models.Model):
@@ -198,8 +198,8 @@ class Investigation(NodeCollection):
     def get_study(self):
         try:
             return Study.objects.get(investigation=self)
-        except(Study.DoesNotExist, Study.MultipleObjectsReturned) as e:
-            raise RuntimeError("Couldn't properly fetch Study: {}".format(e))
+        except (Study.DoesNotExist, Study.MultipleObjectsReturned) as e:
+            raise RuntimeError(f"Couldn't properly fetch Study: {e}")
 
     def get_study_count(self):
         return self.study_set.count()
@@ -207,16 +207,12 @@ class Investigation(NodeCollection):
     def get_assay(self):
         try:
             return Assay.objects.get(study=self.get_study())
-        except(Assay.DoesNotExist, Assay.MultipleObjectsReturned) as e:
-            raise RuntimeError("Couldn't properly fetch Assay: {}".format(e))
+        except (Assay.DoesNotExist, Assay.MultipleObjectsReturned) as e:
+            raise RuntimeError(f"Couldn't properly fetch Assay: {e}")
 
     def get_assay_count(self):
         studies = self.study_set.all()
-        assay_count = 0
-        for study in studies:
-            assay_count += study.assay_set.count()
-
-        return assay_count
+        return sum(study.assay_set.count() for study in studies)
 
     def get_file_store_items(self, exclude_metadata_file=False,
                              local_only=False):
@@ -282,7 +278,7 @@ class Ontology(models.Model):
     description = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return str(self.name) + " (" + str(self.file_name) + ")"
+        return f"{str(self.name)} ({str(self.file_name)})"
 
 
 class Study(NodeCollection):
@@ -298,14 +294,12 @@ class Study(NodeCollection):
             ).order_by("version").reverse()[0].data_set
         except (AttributeError, IndexError) as e:
             raise RuntimeError(
-                "Couldn't fetch DataSet for Investigation {}: {}".format(
-                    investigation_uuid, e
-                )
+                f"Couldn't fetch DataSet for Investigation {investigation_uuid}: {e}"
             )
         return data_set
 
     def __str__(self):
-        return str(self.identifier) + ": " + str(self.title)
+        return f"{str(self.identifier)}: {str(self.title)}"
 
 
 @receiver(pre_delete, sender=Study)
@@ -341,7 +335,7 @@ class Factor(models.Model):
     type_source = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return str(self.name) + ": " + str(self.type)
+        return f"{str(self.name)}: {str(self.type)}"
 
 
 class Assay(models.Model):
@@ -361,15 +355,15 @@ class Assay(models.Model):
     def __str__(self):
         retstr = ""
         if self.measurement:
-            retstr += "Measurement: %s; " % str(self.measurement)
+            retstr += f"Measurement: {str(self.measurement)}; "
 
         if self.technology:
-            retstr += "Technology: %s; " % str(self.technology)
+            retstr += f"Technology: {str(self.technology)}; "
 
         if self.platform:
-            retstr += "Platform: %s; " % str(self.platform)
+            retstr += f"Platform: {str(self.platform)}; "
 
-        retstr += "File: %s" % str(self.file_name)
+        retstr += f"File: {str(self.file_name)}"
         return retstr
 
     def get_file_count(self):
@@ -401,7 +395,7 @@ class Protocol(models.Model):
     # protocol components: via FK
 
     def __str__(self):
-        return str(self.name) + ": " + str(self.type)
+        return f"{str(self.name)}: {str(self.type)}"
 
     class Meta:
         ordering = ['id']
@@ -524,11 +518,7 @@ class Node(models.Model):
     workflow_output = models.CharField(null=True, blank=False, max_length=500)
 
     def __str__(self):
-        return str(self.type) + ": " + str(self.name) + " (" +\
-               str(self.parents.count()) + " parents, " +\
-               str(self.children.count()) + " children " + "| " +\
-               "species: " + str(self.species) +\
-               ", genome build: " + str(self.genome_build) + ")"
+        return f"{str(self.type)}: {str(self.name)} ({str(self.parents.count())} parents, {str(self.children.count())} children | species: {str(self.species)}, genome build: {str(self.genome_build)})"
 
     def add_child(self, node):
         if node is None:
@@ -554,13 +544,7 @@ class Node(models.Model):
         This finds all node types which are "derived"
         :returns: a list of all node types which are "derived"
         """
-        derived_node_types = []
-
-        for item in self.FILES:
-            if "derived" in item.lower():
-                derived_node_types.append(item)
-
-        return derived_node_types
+        return [item for item in self.FILES if "derived" in item.lower()]
 
     def is_derived(self):
         """
@@ -578,29 +562,31 @@ class Node(models.Model):
         return core.models.AnalysisNodeConnection.objects.filter(node=self)
 
     def create_and_associate_auxiliary_node(self, filestore_item):
-            """
+        """
             Tries to create and associate an auxiliary Node with a parent
             node.
 
             If said auxiliary Node already exists, we just do a get()
             and do not re-add it as a child
             """
-            node = Node.objects.get_or_create(
-                study=self.study, assay=self.assay,
-                name="auxiliary Node for: {}".format(self.name),
-                is_auxiliary_node=True, file_item=filestore_item
-            )
+        node = Node.objects.get_or_create(
+            study=self.study,
+            assay=self.assay,
+            name=f"auxiliary Node for: {self.name}",
+            is_auxiliary_node=True,
+            file_item=filestore_item,
+        )
+        is_newly_created_node = node[1]
+
+        if is_newly_created_node:
             # get_or_create() returns a tuple:
             # (<Node_object>, Boolean: <created>)
             # So, if this Node is newly created, we will associate it as a
             # child to its parent, otherwise nothing happens
             # https://docs.djangoproject.com/en/1.10/ref/models/querysets/#get-or-create
             node_object = node[0]
-            is_newly_created_node = node[1]
-
-            if is_newly_created_node:
-                self.add_child(node_object)
-                return node_object
+            self.add_child(node_object)
+            return node_object
 
     def get_children(self):
         """
@@ -726,14 +712,12 @@ class Attribute(models.Model):
 
     def __str__(self):
         return (
-            str(self.type) + (
-                "" if self.subtype is None else " (" + str(
-                    self.subtype
-                ) + ")"
-            ) +
-            " = " +
-            str(self.value)
-        )
+            (
+                str(self.type)
+                + ("" if self.subtype is None else f" ({str(self.subtype)})")
+            )
+            + " = "
+        ) + str(self.value)
 
 
 # non-ISA Tab
@@ -865,12 +849,12 @@ def _query_solr(study, assay, attribute=None):
     }
 
     if attribute is not None:
-        params.update({
+        params |= {
             'facet': 'true',
             'facet.field': attribute,
             'facet.sort': 'count',
-            'facet.limit': '-1'
-        })
+            'facet.limit': '-1',
+        }
 
     # This log tends to be massive and spams the log file. Turn on only when
     # needed.
@@ -964,7 +948,7 @@ class ProtocolReference(models.Model):
     comment = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return str(self.protocol) + " (reference)"
+        return f"{str(self.protocol)} (reference)"
 
 
 class ProtocolReferenceParameter(models.Model):
@@ -978,4 +962,4 @@ class ProtocolReferenceParameter(models.Model):
     value_source = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return str(self.name) + " = " + str(self.value)
+        return f"{str(self.name)} = {str(self.value)}"

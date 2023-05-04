@@ -21,7 +21,7 @@ class JsonAsHTML(object):
 
         # only do something if this is a json response
         if "application/json" in response['Content-Type'].lower():
-            title = "JSON as HTML Middleware for: %s" % request.get_full_path()
+            title = f"JSON as HTML Middleware for: {request.get_full_path()}"
             response.content = (
                 "<html><head><title>{title}</title></head><body><pre>{body}"
                 "</pre></body></html>".format(

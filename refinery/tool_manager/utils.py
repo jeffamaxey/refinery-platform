@@ -31,10 +31,8 @@ ANNOTATION_ERROR_MESSAGE = (
 )
 # Allow JSON Schema to find the JSON pointers we define in our schemas
 JSON_SCHEMA_FILE_RESOLVER = RefResolver(
-    "file://{}/".format(
-        os.path.join(settings.BASE_DIR, "refinery/tool_manager/schemas")
-    ),
-    None
+    f'file://{os.path.join(settings.BASE_DIR, "refinery/tool_manager/schemas")}/',
+    None,
 )
 
 
@@ -55,15 +53,7 @@ class FileTypeValidationError(RuntimeError):
     """
 
     def __init__(self, filetype, error):
-        error_message = (
-            "Couldn't properly fetch FileType: {}.\n"
-            "Valid FileTypes are {}.\n"
-            "{}".format(
-                filetype,
-                [f.name for f in FileType.objects.all()],
-                error
-            )
-        )
+        error_message = f"Couldn't properly fetch FileType: {filetype}.\nValid FileTypes are {[f.name for f in FileType.objects.all()]}.\n{error}"
 
         super(FileTypeValidationError, self).__init__(error_message)
 
@@ -115,12 +105,12 @@ def create_tool_definition(annotation_data):
             uuid=str(uuid.uuid4()),
             name=annotation_data["name"],
             description=annotation["description"],
-            summary="Workflow for: {}".format(annotation_data["name"]),
+            summary=f'Workflow for: {annotation_data["name"]}',
             internal_id=annotation_data["galaxy_workflow_id"],
             workflow_engine=workflow_engine,
             is_active=True,
             type=Workflow.ANALYSIS_TYPE,
-            graph=json.dumps(annotation_data["graph"])
+            graph=json.dumps(annotation_data["graph"]),
         )
         workflow.set_manager_group(workflow_engine.get_manager_group())
         workflow.share(workflow_engine.get_manager_group().get_managed_group())
@@ -142,9 +132,7 @@ def create_tool_definition(annotation_data):
             image_name, version = tool_definition.image_name.split(":")
         except ValueError:
             raise RuntimeError(
-                "Tool's Docker image: `{}` has no specified version".format(
-                    tool_definition.image_name
-                )
+                f"Tool's Docker image: `{tool_definition.image_name}` has no specified version"
             )
         else:
             logger.debug(
@@ -204,10 +192,7 @@ def create_tool(tool_launch_configuration, user_instance):
         tool = VisualizationToolFactory(**common_tool_params)
 
         # Create a unique container name that adheres to docker's specs
-        tool.container_name = "{}-{}".format(
-            tool.name.replace(" ", ""),
-            tool.uuid
-        )
+        tool.container_name = f'{tool.name.replace(" ", "")}-{tool.uuid}'
 
     tool.set_owner(user_instance)
     tool.update_file_relationships_with_urls()
@@ -216,8 +201,7 @@ def create_tool(tool_launch_configuration, user_instance):
         nesting = tool.get_file_relationships_urls()
     except (SyntaxError, ValueError) as e:
         raise RuntimeError(
-            "ToolLaunchConfiguration's `file_relationships` could not be "
-            "evaluated as a Pythonic Data Structure: {}".format(e)
+            f"ToolLaunchConfiguration's `file_relationships` could not be evaluated as a Pythonic Data Structure: {e}"
         )
     else:
         parse_file_relationship_nesting(nesting)
@@ -233,8 +217,7 @@ def create_tool(tool_launch_configuration, user_instance):
         tool.save()
     except IntegrityError:
         raise RuntimeError(
-            "A Tool already exists with a display_name of: '{}'"
-            .format(display_name)
+            f"A Tool already exists with a display_name of: '{display_name}'"
         )
     return tool
 
@@ -287,16 +270,16 @@ def create_file_relationship_nesting(workflow_annotation,
             file_relationships=file_relationships
         )
     else:
-        # If we reach here, we have reached the bottom-most nested
-        # file_relationship. Since we want to act upon the bottom-most
-        # file_relationship's input_files, we can safely grab the
-        # last element from our `file_relationships` due to Python's nature of
-        # ordering lists.
-        bottom_file_relationship = file_relationships[-1]
-
         # Fetch, create, and associate InputFiles with the
         # bottom-most file_relationship
         if workflow_annotation["input_files"]:
+            # If we reach here, we have reached the bottom-most nested
+            # file_relationship. Since we want to act upon the bottom-most
+            # file_relationship's input_files, we can safely grab the
+            # last element from our `file_relationships` due to Python's nature of
+            # ordering lists.
+            bottom_file_relationship = file_relationships[-1]
+
             for input_file in workflow_annotation["input_files"]:
                 input_file_instance = InputFileFactory(
                     name=input_file["name"],
@@ -361,9 +344,7 @@ def get_workflows():
             workflows = galaxy_connection.workflows.get_workflows()
         except ConnectionError as e:
             raise RuntimeError(
-                "Unable to retrieve workflows from '{}' {}".format(
-                    workflow_engine.instance.base_url, e
-                )
+                f"Unable to retrieve workflows from '{workflow_engine.instance.base_url}' {e}"
             )
         else:
             for workflow in workflows:
@@ -412,9 +393,7 @@ def parse_file_relationship_nesting(nested_structure, nesting_dict=None,
         nesting_contents.append(item)
 
     if len(nesting_types) != 1:
-        raise RuntimeError(
-            "LIST/PAIR structure is not balanced {}".format(nesting_contents)
-        )
+        raise RuntimeError(f"LIST/PAIR structure is not balanced {nesting_contents}")
     if nesting_types in [{str}, {str}]:
         # If we reach a nesting level with all `str` we can return
         return
@@ -422,10 +401,7 @@ def parse_file_relationship_nesting(nested_structure, nesting_dict=None,
     valid_types = [{list}, {tuple}]
     if nesting_types not in valid_types:
         raise RuntimeError(
-            "The 'file_relationships' {} type {} "
-            "is not a valid LIST/PAIR nesting: {}".format(
-                nesting_contents, nesting_types, valid_types
-            )
+            f"The 'file_relationships' {nesting_contents} type {nesting_types} is not a valid LIST/PAIR nesting: {valid_types}"
         )
 
     nesting_level += 1
@@ -459,11 +435,7 @@ def validate_tool_annotation(annotation_dictionary):
         )
     except ValidationError as e:
         raise RuntimeError(
-            "{}\n\n{}\n\n{}".format(
-                ANNOTATION_ERROR_MESSAGE,
-                e,
-                ["{}".format(str(err)) for err in e.context]
-            )
+            f'{ANNOTATION_ERROR_MESSAGE}\n\n{e}\n\n{[f"{str(err)}" for err in e.context]}'
         )
 
 
@@ -488,9 +460,7 @@ def validate_workflow_step_annotation(workflow_step_dictionary):
             resolver=JSON_SCHEMA_FILE_RESOLVER
         )
     except ValidationError as e:
-        raise RuntimeError(
-            "{}{}".format(ANNOTATION_ERROR_MESSAGE, e)
-        )
+        raise RuntimeError(f"{ANNOTATION_ERROR_MESSAGE}{e}")
 
 
 def validate_tool_launch_configuration(tool_launch_config):
@@ -513,9 +483,7 @@ def validate_tool_launch_configuration(tool_launch_config):
         )
     except ValidationError as e:
         raise RuntimeError(
-            "Tool launch configuration is not properly configured: {}".format(
-                e
-            )
+            f"Tool launch configuration is not properly configured: {e}"
         )
 
 
@@ -530,10 +498,7 @@ def create_expanded_workflow_graph(galaxy_workflow_dict):
         # create node
         graph.add_node(current_node_id)
         # add node attributes
-        graph.node[current_node_id]['name'] = "{}:{}".format(
-            current_node_id,
-            step['name']
-        )
+        graph.node[current_node_id]['name'] = f"{current_node_id}:{step['name']}"
         graph.node[current_node_id]['tool_id'] = step['tool_id']
         graph.node[current_node_id]['type'] = step['type']
         graph.node[current_node_id]['position'] = (
@@ -559,15 +524,9 @@ def create_expanded_workflow_graph(galaxy_workflow_dict):
                 parent_node_output_name = parent_step["name"].title()
             else:
                 parent_node_output_name = input_connection['output_name']
-            edge_output_id = "{}_{}".format(
-                parent_node_id,
-                parent_node_output_name
-            )
-            edge_input_id = "{}_{}".format(
-                current_node_id,
-                current_node_input_name
-            )
-            edge_id = "{}___{}".format(edge_output_id, edge_input_id)
+            edge_output_id = f"{parent_node_id}_{parent_node_output_name}"
+            edge_input_id = f"{current_node_id}_{current_node_input_name}"
+            edge_id = f"{edge_output_id}___{edge_input_id}"
             graph.add_edge(parent_node_id, current_node_id, key=edge_id)
             graph[parent_node_id][current_node_id]['output_id'] = (
                 edge_output_id

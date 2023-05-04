@@ -35,9 +35,7 @@ class Command(BaseCommand):
         username = options['username']
         user_object = User.objects.filter(username__exact=username)
         if len(user_object) > 0:
-            error_msg = "User {} already exists. " \
-                        "Please delete the account and try again."\
-                        .format(username)
+            error_msg = f"User {username} already exists. Please delete the account and try again."
             sys.stderr.write(error_msg)
             return
 
@@ -65,5 +63,5 @@ def init_user(username, password, email, first_name, last_name, affiliation,
     user_object.save()
     user_object.profile.save()
 
-    success_msg = "User {} created.".format(username)
+    success_msg = f"User {username} created."
     sys.stdout.write(success_msg)

@@ -82,7 +82,7 @@ class Command(BaseCommand):
                 for filename in filenames:
                     # Associate pre-isatab file with isatab file
                     for key in isatab_dict:
-                        if re.search(r'%s$' % key, filename):
+                        if re.search(f'{key}$', filename):
                             file = os.path.join(root, filename)
                             isatab_dict[key].append(file)
                             pre_isatab_files += 1
@@ -96,7 +96,7 @@ class Command(BaseCommand):
         if options['base_pre_isa_dir'] and not pre_isatab_files:
             isatab_dict[base_isa_dir].append(options['base_pre_isa_dir'])
 
-        s_tasks = list()
+        s_tasks = []
         # Add subtasks to list
         for v_list in isatab_dict.values():
             isa_file = v_list.pop(0)

@@ -108,14 +108,14 @@ class FileStoreItemTest(TestCase):
 
     def test_file_source_map_translation(self):
         with override_settings(
-                REFINERY_FILE_SOURCE_MAP={
-                    'http://example.org/web/path/': '/new/path/'
-                }
-        ):
+                    REFINERY_FILE_SOURCE_MAP={
+                        'http://example.org/web/path/': '/new/path/'
+                    }
+            ):
             item = FileStoreItem.objects.create(
-                source='http://example.org/web/path/' + self.file_name
+                source=f'http://example.org/web/path/{self.file_name}'
             )
-            self.assertEqual(item.source, '/new/path/' + self.file_name)
+            self.assertEqual(item.source, f'/new/path/{self.file_name}')
 
     @override_settings(REFINERY_FILE_SOURCE_MAP={})
     def test_empty_file_source_map_translation_with_url_source(self):
@@ -242,14 +242,14 @@ class FileSourceTranslationTestVagrant(TestCase):
 class FileSourceTranslationTestAWS(TestCase):
     def test_translate_from_relative_path_with_cognito_identity_id(self):
         filename = 'test_file.fastq'
-        identity_id = 'us-east-1:{}'.format(uuid.uuid4())
+        identity_id = f'us-east-1:{uuid.uuid4()}'
         translate_file_source = generate_file_source_translator(
             identity_id=identity_id
         )
-        self.assertEqual(translate_file_source(filename),
-                         "s3://{}/{}/{}".format(
-                             settings.UPLOAD_BUCKET, identity_id, filename
-                         ))
+        self.assertEqual(
+            translate_file_source(filename),
+            f"s3://{settings.UPLOAD_BUCKET}/{identity_id}/{filename}",
+        )
 
 
 @override_storage()

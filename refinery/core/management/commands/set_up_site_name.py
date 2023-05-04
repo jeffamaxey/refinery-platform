@@ -23,9 +23,7 @@ class Command(BaseCommand):
             refinery_instance_name = options['refinery_instance_name']
             refinery_base_url = options['refinery_base_url']
         except:
-            raise CommandError(
-                "Insufficient arguments provided:\n {}".format(self.help)
-            )
+            raise CommandError(f"Insufficient arguments provided:\n {self.help}")
         else:
             set_up_site_name(refinery_instance_name, refinery_base_url)
 

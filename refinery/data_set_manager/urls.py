@@ -4,6 +4,7 @@ Created on May 11, 2012
 @author: nils
 '''
 
+
 from django.conf.urls import url
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
@@ -47,10 +48,14 @@ router.register(r'nodes', views.NodeViewSet, 'nodes')
 
 data_set_manager_api_urls = router.urls + [
     url(r'^assays/$', views.AssayAPIView.as_view()),
-    url(r'^assays/(?P<uuid>' + UUID_RE + ')/files/$',
-        views.AssayFileAPIView.as_view()),
-    url(r'^assays/(?P<uuid>' + UUID_RE + ')/attributes/$',
-        views.AssayAttributeAPIView.as_view()),
+    url(
+        f'^assays/(?P<uuid>{UUID_RE})/files/$',
+        views.AssayFileAPIView.as_view(),
+    ),
+    url(
+        f'^assays/(?P<uuid>{UUID_RE})/attributes/$',
+        views.AssayAttributeAPIView.as_view(),
+    ),
     url(r'^data_set_manager/add-file/$', views.AddFileToNodeView.as_view()),
     url(r'^studies/$', views.StudyAPIView.as_view()),
 ]

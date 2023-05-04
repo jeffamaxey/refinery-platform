@@ -40,10 +40,10 @@ class CachingTest(TestCase):
         for index, item in enumerate(range(0, 6)):
             create_dataset_with_necessary_models(slug="TestSlug%d" % index)
         # Adding to cache
-        cache.add("{}-DataSet".format(self.user.id), DataSet.objects.all())
+        cache.add(f"{self.user.id}-DataSet", DataSet.objects.all())
 
         # Initial data that is cached, to test against later
-        self.initial_cache = cache.get("{}-DataSet".format(self.user.id))
+        self.initial_cache = cache.get(f"{self.user.id}-DataSet")
 
     def tearDown(self):
         self.cache = invalidate_cached_object(DataSet.objects.get(
@@ -53,7 +53,7 @@ class CachingTest(TestCase):
         # Grab a DataSet and see if we can invalidate the cache
         ds = DataSet.objects.get(slug="TestSlug5")
         self.cache = invalidate_cached_object(ds, True)
-        self.assertIsNone(self.cache.get("{}-DataSet".format(self.user.id)))
+        self.assertIsNone(self.cache.get(f"{self.user.id}-DataSet"))
 
     def test_verify_data_after_save(self):
         # Grab, alter, and save an object being cached
@@ -65,9 +65,8 @@ class CachingTest(TestCase):
         self.cache = invalidate_cached_object(ds, True)
 
         # Adding to cache again
-        self.cache.add("{}-DataSet".format(self.user.id),
-                       DataSet.objects.all())
-        new_cache = self.cache.get("{}-DataSet".format(self.user.id))
+        self.cache.add(f"{self.user.id}-DataSet", DataSet.objects.all())
+        new_cache = self.cache.get(f"{self.user.id}-DataSet")
 
         self.assertTrue(new_cache)
         # Make sure new cache represents the altered data
@@ -83,11 +82,10 @@ class CachingTest(TestCase):
         self.cache = invalidate_cached_object(DataSet.objects.get(
             slug="TestSlug1"), True)
 
-        self.assertFalse(self.cache.get("{}-DataSet".format(self.user.id)))
+        self.assertFalse(self.cache.get(f"{self.user.id}-DataSet"))
         # Adding to cache again
-        self.cache.add("{}-DataSet".format(self.user.id),
-                       DataSet.objects.all())
-        new_cache = self.cache.get("{}-DataSet".format(self.user.id))
+        self.cache.add(f"{self.user.id}-DataSet", DataSet.objects.all())
+        new_cache = self.cache.get(f"{self.user.id}-DataSet")
 
         self.assertTrue(new_cache)
         # Make sure new cache represents the altered data
@@ -102,11 +100,10 @@ class CachingTest(TestCase):
         self.cache = invalidate_cached_object(DataSet.objects.get(
             slug="TestSlug1"), True)
 
-        self.assertFalse(self.cache.get("{}-DataSet".format(self.user.id)))
+        self.assertFalse(self.cache.get(f"{self.user.id}-DataSet"))
         # Adding to cache again
-        self.cache.add("{}-DataSet".format(self.user.id),
-                       DataSet.objects.all())
-        new_cache = self.cache.get("{}-DataSet".format(self.user.id))
+        self.cache.add(f"{self.user.id}-DataSet", DataSet.objects.all())
+        new_cache = self.cache.get(f"{self.user.id}-DataSet")
 
         self.assertTrue(new_cache)
         # Make sure new cache represents the altered data
@@ -149,8 +146,7 @@ class CoreIndexTests(TestCase):
         )
 
         self.assertEqual(
-            prepared_submitters,
-            ["{}, {}".format(contact.last_name, contact.first_name)]
+            prepared_submitters, [f"{contact.last_name}, {contact.first_name}"]
         )
 
     def test_prepare_submitter_funky_contact(self):
@@ -165,8 +161,7 @@ class CoreIndexTests(TestCase):
             self.good_dataset
         )
         self.assertEqual(
-            prepared_submitters,
-            ["{}, {}".format(contact.last_name, contact.first_name)]
+            prepared_submitters, [f"{contact.last_name}, {contact.first_name}"]
         )
 
     def test_prepare_description_bad_dataset(self):
@@ -220,18 +215,18 @@ class UtilitiesTest(TestCase):
         self.assertLessEqual(difference_time.total_seconds(), .99)
 
     # Mock methods used in filter_nodes_uuids_in_solr
-    def fake_generate_solr_params(params, assay_uuid):
+    def fake_generate_solr_params(self, assay_uuid):
         # Method should respond with a string
         return ''
 
-    def fake_search_solr(params, str_name):
+    def fake_search_solr(self, str_name):
         # Method expects solr params and a str_name. It should return a string
         # For mock purpose, pass params which are included in solr_response
-        return params
+        return self
 
-    def fake_format_solr_response(solr_response):
+    def fake_format_solr_response(self):
         # Method expects solr_response and returns array of uuid objs
-        if '&fq=-uuid' in solr_response:
+        if '&fq=-uuid' in self:
             # if uuids are passed in
             response_node_uuids = [
                 {'uuid': 'd2041706-ad2e-4f5b-a6ac-2122fe2a9751'},
@@ -345,9 +340,9 @@ class TestMigrations(TestCase):
     migrate_to = None
 
     def setUp(self):
-        assert self.migrate_from and self.migrate_to, \
-            "TestCase '{}' must define migrate_from and migrate_to properties"\
-            .format(type(self).__name__)
+        assert (
+            self.migrate_from and self.migrate_to
+        ), f"TestCase '{type(self).__name__}' must define migrate_from and migrate_to properties"
         self.migrate_from = [(self.app, self.migrate_from)]
         self.migrate_to = [(self.app, self.migrate_to)]
         executor = MigrationExecutor(connection)

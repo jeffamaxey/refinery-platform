@@ -34,20 +34,17 @@ class ToolManagerViewSetBase(ModelViewSet):
         try:
             data_set_uuid = self.request.query_params["data_set_uuid"]
         except (AttributeError, KeyError) as e:
-            return HttpResponseBadRequest("Must specify a DataSet "
-                                          "UUID: {}".format(e))
+            return HttpResponseBadRequest(f"Must specify a DataSet UUID: {e}")
         try:
             self.data_set = DataSet.objects.get(uuid=data_set_uuid)
         except (DataSet.DoesNotExist, DataSet.MultipleObjectsReturned) as e:
             return HttpResponseBadRequest(
-                "Couldn't fetch DataSet with UUID: {} {}"
-                .format(data_set_uuid, e)
+                f"Couldn't fetch DataSet with UUID: {data_set_uuid} {e}"
             )
         if self.request.user.has_perm('core.read_meta_dataset', self.data_set):
             return super(ToolManagerViewSetBase, self).list(request)
         return HttpResponseForbidden(
-            "User is not authorized to access DataSet with UUID: {}"
-            .format(self.data_set.uuid)
+            f"User is not authorized to access DataSet with UUID: {self.data_set.uuid}"
         )
 
 
@@ -107,8 +104,7 @@ class ToolsViewSet(ToolManagerViewSetBase):
         try:
             validate_tool_launch_configuration(request.data)
         except RuntimeError as e:
-            return HttpResponseBadRequest("Invalid tool launch "
-                                          "configuration: {}".format(e))
+            return HttpResponseBadRequest(f"Invalid tool launch configuration: {e}")
         else:
             tool_launch_configuration = request.data
             try:
@@ -135,28 +131,23 @@ class ToolsViewSet(ToolManagerViewSetBase):
         visualization_tool = get_object_or_404(VisualizationTool,
                                                uuid=tool_uuid)
 
-        if not request.user == visualization_tool.get_owner():
+        if request.user != visualization_tool.get_owner():
             return render_vis_tool_error_template(
                 request,
                 visualization_tool.name,
-                "User: {} does not have permission to delete {}: {}".format(
-                    request.user.username,
-                    visualization_tool.name,
-                    visualization_tool.uuid
-                ), status=403
+                f"User: {request.user.username} does not have permission to delete {visualization_tool.name}: {visualization_tool.uuid}",
+                status=403,
             )
         try:
             with transaction.atomic():
                 visualization_tool.delete()
         except Exception as exc:
             logger.error(exc)
-            return HttpResponseBadRequest("{} could not be deleted: {}".format(
-                visualization_tool.display_name, exc
-            ))
+            return HttpResponseBadRequest(
+                f"{visualization_tool.display_name} could not be deleted: {exc}"
+            )
         else:
-            return HttpResponse("{} deleted successfully".format(
-                visualization_tool.display_name
-            ))
+            return HttpResponse(f"{visualization_tool.display_name} deleted successfully")
 
     @detail_route(methods=['get'])
     def relaunch(self, request, *args, **kwargs):
@@ -171,11 +162,8 @@ class ToolsViewSet(ToolManagerViewSetBase):
             return render_vis_tool_error_template(
                 request,
                 visualization_tool.name,
-                "User: {} does not have permission to view {}: {}".format(
-                    request.user.username,
-                    visualization_tool.name,
-                    visualization_tool.uuid
-                ), status=403
+                f"User: {request.user.username} does not have permission to view {visualization_tool.name}: {visualization_tool.uuid}",
+                status=403,
             )
 
         if visualization_tool.is_running():
@@ -208,7 +196,8 @@ class AutoRelaunchProxy(Proxy, object):
     def __init__(self):
         super(AutoRelaunchProxy, self).__init__(
             please_wait_title='Please wait...',
-            please_wait_body_html='''
+            please_wait_body_html=(
+                '''
                 <style>
                 body {{
                   font-family: "Source Sans Pro",Helvetica,Arial,sans-serif;
@@ -229,7 +218,10 @@ class AutoRelaunchProxy(Proxy, object):
                 <p>Please wait...</p>
                 <img src="{0}/spinner.gif">
                 </div>
-            '''.format(settings.STATIC_URL + 'images')
+            '''.format(
+                    f'{settings.STATIC_URL}images'
+                )
+            ),
         )
 
     def _proxy_view(self, request, container_name, url):
@@ -241,11 +233,8 @@ class AutoRelaunchProxy(Proxy, object):
             return render_vis_tool_error_template(
                 request,
                 visualization_tool.name,
-                "User: {} does not have permission to view {}: {}".format(
-                    request.user.username,
-                    visualization_tool.name,
-                    visualization_tool.uuid
-                ), status=403
+                f"User: {request.user.username} does not have permission to view {visualization_tool.name}: {visualization_tool.uuid}",
+                status=403,
             )
 
         if not visualization_tool.is_running():

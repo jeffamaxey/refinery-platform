@@ -13,7 +13,9 @@ def forwards(apps, schema_editor):
         # https://www.vlent.nl/weblog/2011/05/06/integrityerror-duplicate-key-value-violates-unique-constraint/
         highest_id = FileType.objects.all().aggregate(Max('id'))["id__max"]
         with connection.cursor() as cursor:
-            cursor.execute('alter sequence file_store_filetype_id_seq restart with {};'.format(highest_id + 1))
+            cursor.execute(
+                f'alter sequence file_store_filetype_id_seq restart with {highest_id + 1};'
+            )
 
     filetypes = [
         FileType(
@@ -171,7 +173,9 @@ def forwards(apps, schema_editor):
         # https://www.vlent.nl/weblog/2011/05/06/integrityerror-duplicate-key-value-violates-unique-constraint/
         highest_id = FileExtension.objects.all().aggregate(Max('id'))["id__max"]
         with connection.cursor() as cursor:
-            cursor.execute('alter sequence file_store_fileextension_id_seq restart with {};'.format(highest_id + 1))
+            cursor.execute(
+                f'alter sequence file_store_fileextension_id_seq restart with {highest_id + 1};'
+            )
 
     file_extensions = [
         FileExtension(

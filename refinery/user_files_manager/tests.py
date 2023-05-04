@@ -64,21 +64,13 @@ class UserFileAPITests(APITestCase):
             force_authenticate(request, user=user)
 
         mock_doc = {
-            NodeIndex.DOWNLOAD_URL:
-                "fake-url",
-            "filename_Characteristics" + NodeIndex.GENERIC_SUFFIX:
-                "fake-filename",
-            "organism_Factor_Value" + NodeIndex.GENERIC_SUFFIX:
-                "handles\\u2013unicode"
-            # Just want to exercise "_Characteristics" and "_Factor_Value":
-            # Doesn't matter if the names are backwards.
+            NodeIndex.DOWNLOAD_URL: "fake-url",
+            f"filename_Characteristics{NodeIndex.GENERIC_SUFFIX}": "fake-filename",
+            f"organism_Factor_Value{NodeIndex.GENERIC_SUFFIX}": "handles\\u2013unicode",
         }
         response_dict = {"response": {"docs": [mock_doc]}}
-        with mock.patch(
-                'user_files_manager.views.' + solr_mock_reference,
-                return_value=bytes(json.dumps(response_dict),
-                                   encoding='utf-8')
-        ):
+        with mock.patch(f'user_files_manager.views.{solr_mock_reference}', return_value=bytes(json.dumps(response_dict),
+                                       encoding='utf-8')):
             response = user_files_csv(request)
             self.assertEqual(
                 response.content,
@@ -204,9 +196,9 @@ class UserFilesUtilsTests(TestCase):
 
     def test_generate_solr_params_for_user_returns_json_filter(self):
         query = generate_solr_params_for_user(QueryDict({}), self.user.id)
-        self.assertListEqual(query.get('json').get('filter'),
-                             ['assay_uuid:({})'.format(self.assay_uuid)]
-                             )
+        self.assertListEqual(
+            query.get('json').get('filter'), [f'assay_uuid:({self.assay_uuid})']
+        )
 
     def test_generate_solr_params_for_user_returns_json_query(self):
         query = generate_solr_params_for_user(QueryDict({}), self.user.id)

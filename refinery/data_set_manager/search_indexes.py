@@ -63,7 +63,7 @@ class NodeIndex(indexes.SearchIndex, indexes.Indexable):
         for field in Assay._meta.fields:
             if field.name in ['id', 'uuid', 'study', 'file_name']:
                 continue
-            key = field.name + '_Characteristics' + NodeIndex.GENERIC_SUFFIX
+            key = f'{field.name}_Characteristics{NodeIndex.GENERIC_SUFFIX}'
             data[key] = set()
             assay = object.assay
             if assay is not None:
@@ -108,9 +108,9 @@ class NodeIndex(indexes.SearchIndex, indexes.Indexable):
             logger.warn(e)
 
         if node.assay is not None:
-            id_suffix += "_" + str(node.assay.id)
+            id_suffix += f"_{str(node.assay.id)}"
 
-        id_suffix = "_" + id_suffix + "_s"
+        id_suffix = f"_{id_suffix}_s"
 
         data.update(self._assay_data(node))
 
@@ -118,11 +118,11 @@ class NodeIndex(indexes.SearchIndex, indexes.Indexable):
         for annotation in annotations:
             name = annotation.attribute_type
             if annotation.attribute_subtype is not None:
-                name = annotation.attribute_subtype + "_" + name
+                name = f"{annotation.attribute_subtype}_{name}"
 
             value = annotation.attribute_value
             if annotation.attribute_value_unit is not None:
-                value += " " + annotation.attribute_value_unit
+                value += f" {annotation.attribute_value_unit}"
 
             name = re.sub(r'\W', settings.REFINERY_SOLR_SPACE_DYNAMIC_FIELDS,
                           name)
@@ -148,7 +148,7 @@ class NodeIndex(indexes.SearchIndex, indexes.Indexable):
         # iterate over all keys in data and join sets into strings
         for key, value in data.items():
             if type(value) is set:
-                data[key] = " + ".join(i for i in sorted(value))
+                data[key] = " + ".join(sorted(value))
 
         if node.file_item is None:
             datafile = ""
@@ -157,24 +157,28 @@ class NodeIndex(indexes.SearchIndex, indexes.Indexable):
             datafile = node.file_item.datafile.name
             filetype = node.file_item.filetype
 
-        data.update({
-            NodeIndex.DATAFILE: datafile,
-            NodeIndex.DOWNLOAD_URL:
-                _get_download_url_or_import_state(node.file_item),
-            NodeIndex.TYPE_PREFIX + id_suffix: node.type,
-            NodeIndex.NAME_PREFIX + id_suffix: node.name,
-            'filetype_Characteristics' + NodeIndex.GENERIC_SUFFIX: filetype,
-            NodeIndex.FILETYPE_PREFIX + id_suffix: filetype,
-            NodeIndex.ANALYSIS_UUID_PREFIX + id_suffix:
-                constants.NOT_AVAILABLE if node.get_analysis() is None
+        data.update(
+            {
+                NodeIndex.DATAFILE: datafile,
+                NodeIndex.DOWNLOAD_URL: _get_download_url_or_import_state(
+                    node.file_item
+                ),
+                NodeIndex.TYPE_PREFIX + id_suffix: node.type,
+                NodeIndex.NAME_PREFIX + id_suffix: node.name,
+                f'filetype_Characteristics{NodeIndex.GENERIC_SUFFIX}': filetype,
+                NodeIndex.FILETYPE_PREFIX + id_suffix: filetype,
+                NodeIndex.ANALYSIS_UUID_PREFIX + id_suffix: constants.NOT_AVAILABLE
+                if node.get_analysis() is None
                 else node.get_analysis().name,
-            NodeIndex.SUBANALYSIS_PREFIX + id_suffix:
-                (-1 if node.subanalysis is None  # TODO: upgrade flake8
-                 else node.subanalysis),         # and remove parentheses
-            NodeIndex.WORKFLOW_OUTPUT_PREFIX + id_suffix:
-                constants.NOT_AVAILABLE if node.workflow_output is None
-                else node.workflow_output
-        })
+                NodeIndex.SUBANALYSIS_PREFIX + id_suffix: -1
+                if node.subanalysis is None  # TODO: upgrade flake8
+                else node.subanalysis,
+                NodeIndex.WORKFLOW_OUTPUT_PREFIX
+                + id_suffix: constants.NOT_AVAILABLE
+                if node.workflow_output is None
+                else node.workflow_output,
+            }
+        )
 
         return data
 
@@ -191,22 +195,14 @@ def _get_download_url_or_import_state(file_store_item):
     if file_store_item is None:
         return constants.NOT_AVAILABLE
 
-    download_url = file_store_item.get_datafile_url()
-    if download_url:
+    if download_url := file_store_item.get_datafile_url():
         try:
-            absolute_download_url = build_absolute_url(download_url)
-            return absolute_download_url
+            return build_absolute_url(download_url)
         except ValueError:
-            logger.error('{} is not a valid relative url'.format(
-                    str(download_url)
-                )
-            )
+            logger.error(f'{str(download_url)} is not a valid relative url')
             return None
         except RuntimeError:
-            logger.error('Could not fetch full absolute url for {}'.format(
-                    str(download_url)
-                )
-            )
+            logger.error(f'Could not fetch full absolute url for {str(download_url)}')
             return None
 
     # "PENDING" if an import_task_id doesn't exist and

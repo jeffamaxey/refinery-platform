@@ -75,19 +75,18 @@ class FileImportTask(celery.Task):
                     file_store_name = self.import_url_to_s3(
                         item.source, target_name=target_name
                     )
+            elif os.path.isabs(item.source):
+                file_store_name = self.import_path_to_path(
+                    item.source, target_name=target_name
+                )
+            elif item.source.startswith('s3://'):
+                file_store_name = self.import_s3_to_path(
+                    item.source, target_name=target_name
+                )
             else:
-                if os.path.isabs(item.source):
-                    file_store_name = self.import_path_to_path(
-                        item.source, target_name=target_name
-                    )
-                elif item.source.startswith('s3://'):
-                    file_store_name = self.import_s3_to_path(
-                        item.source, target_name=target_name
-                    )
-                else:
-                    file_store_name = self.import_url_to_path(
-                        item.source, target_name=target_name
-                    )
+                file_store_name = self.import_url_to_path(
+                    item.source, target_name=target_name
+                )
         except (RuntimeError, celery.exceptions.SoftTimeLimitExceeded) as exc:
             logger.error("File import failed: %s", exc)
             self.update_state(state=celery.states.FAILURE,
@@ -113,23 +112,22 @@ class FileImportTask(celery.Task):
         if source_path.startswith((settings.REFINERY_DATA_IMPORT_DIR,
                                    tempfile.gettempdir())):
             move_file(source_path, file_store_path)
+        elif symlink:
+            symlink_file(source_path, file_store_path)
         else:
-            if symlink:
-                symlink_file(source_path, file_store_path)
-            else:
-                make_dir(os.path.dirname(file_store_path))
-                try:
-                    with open(source_path, 'rb') as source, \
+            make_dir(os.path.dirname(file_store_path))
+            try:
+                with open(source_path, 'rb') as source, \
                             open(file_store_path, 'wb') as destination:
-                        copy_file_object(source, destination,
-                                         ProgressPercentage(
-                                             source_path, self.request.id
-                                         ))
-                except EnvironmentError as exc:
-                    delete_file(file_store_path)
-                    raise RuntimeError("Error copying '{}' to '{}': {}".format(
-                        source_path, file_store_path, exc
-                    ))
+                    copy_file_object(source, destination,
+                                     ProgressPercentage(
+                                         source_path, self.request.id
+                                     ))
+            except EnvironmentError as exc:
+                delete_file(file_store_path)
+                raise RuntimeError(
+                    f"Error copying '{source_path}' to '{file_store_path}': {exc}"
+                )
         logger.info("Finished transferring from '%s' to '%s'",
                     source_path, file_store_path)
 
@@ -152,8 +150,7 @@ class FileImportTask(celery.Task):
                 )
         except (EnvironmentError, botocore.exceptions.BotoCoreError,
                 botocore.exceptions.ClientError) as exc:
-            raise RuntimeError("Error copying from '{}': {}".format(
-                source_path, exc))
+            raise RuntimeError(f"Error copying from '{source_path}': {exc}")
         logger.info("Finished transferring from '%s' to 's3://%s/%s'",
                     source_path, settings.MEDIA_BUCKET, file_store_name)
 
@@ -183,9 +180,7 @@ class FileImportTask(celery.Task):
                 botocore.exceptions.ClientError) as exc:
             delete_file(file_store_path)
             raise RuntimeError(
-                "Error downloading from '{}' to '{}': {}".format(
-                    source_url, file_store_path, exc
-                )
+                f"Error downloading from '{source_url}' to '{file_store_path}': {exc}"
             )
         logger.info("Finished transferring from '%s' to '%s'",
                     source_url, file_store_path)
@@ -214,9 +209,7 @@ class FileImportTask(celery.Task):
         except (botocore.exceptions.BotoCoreError,
                 botocore.exceptions.ClientError) as exc:
             raise RuntimeError(
-                "Error copying from '{}' to 's3://{}/{}': {}".format(
-                    source_url, settings.MEDIA_BUCKET, file_store_name, exc
-                )
+                f"Error copying from '{source_url}' to 's3://{settings.MEDIA_BUCKET}/{file_store_name}': {exc}"
             )
         logger.info("Finished transferring from 's3://%s/%s' to 's3://%s/%s'",
                     source_bucket, source_key, settings.MEDIA_BUCKET,
@@ -242,14 +235,13 @@ class FileImportTask(celery.Task):
         make_dir(os.path.dirname(file_store_path))
         try:
             with urlopen(source_url, timeout=30) as response, \
-                    open(file_store_path, 'wb') as destination:
+                        open(file_store_path, 'wb') as destination:
                 copy_file_object(response, destination,
                                  ProgressPercentage(source_url,
                                                     self.request.id))
         except EnvironmentError as exc:
             delete_file(file_store_path)
-            raise RuntimeError("Error downloading from '{}': '{}'".format(
-                source_url, exc))
+            raise RuntimeError(f"Error downloading from '{source_url}': '{exc}'")
         logger.info("Finished transferring from '%s' to '%s'",
                     source_url, file_store_path)
 
@@ -274,9 +266,7 @@ class FileImportTask(celery.Task):
         except (EnvironmentError, botocore.exceptions.BotoCoreError,
                 botocore.exceptions.ClientError) as exc:
             raise RuntimeError(
-                "Error transferring from '{}' to 's3://{}/{}': {}".format(
-                    source_url, settings.MEDIA_BUCKET, file_store_name, exc
-                )
+                f"Error transferring from '{source_url}' to 's3://{settings.MEDIA_BUCKET}/{file_store_name}': {exc}"
             )
         logger.info("Finished transferring from '%s' to 's3://%s/%s'",
                     source_url, settings.MEDIA_BUCKET, file_store_name)
@@ -332,9 +322,9 @@ def download_file(url, target_path, file_size=1):
         response.raise_for_status()
     except requests.exceptions.RequestException as exc:
         logger.error(exc)
-        raise RuntimeError("Could not open URL '{}': {}".format(url, exc))
+        raise RuntimeError(f"Could not open URL '{url}': {exc}")
     except ValueError as exc:
-        raise RuntimeError("Could not open URL '{}'".format(url, exc))
+        raise RuntimeError(f"Could not open URL '{url}'")
     else:
         # get remote file size, provide a default value in case
         # Content-Length is missing

@@ -19,8 +19,11 @@ def create_initial_site_statistics(apps, schema_editor):
         run_date=timezone.now(),
         datasets_uploaded=DataSet.objects.count(),
         datasets_shared=len(
-             [dataset for dataset in DataSet.objects.all() if
-              get_groups_with_perms(dataset)]
+            [
+                dataset
+                for dataset in DataSet.objects.all()
+                if get_groups_with_perms(dataset)
+            ]
         ),
         users_created=User.objects.count(),
         groups_created=ExtendedGroup.objects.exclude(
@@ -29,10 +32,11 @@ def create_initial_site_statistics(apps, schema_editor):
         unique_user_logins=User.objects.filter(
             last_login__lte=timezone.now()
         ).count(),
-        total_user_logins=sum([u.login_count for u in
-                              UserProfile.objects.all()]),
+        total_user_logins=sum(
+            u.login_count for u in UserProfile.objects.all()
+        ),
         total_workflow_launches=WorkflowTool.objects.count(),
-        total_visualization_launches=VisualizationTool.objects.count()
+        total_visualization_launches=VisualizationTool.objects.count(),
     )
 
 

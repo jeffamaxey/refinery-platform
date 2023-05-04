@@ -121,11 +121,13 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         """calls the parsing and insertion functions"""
         source_columns = \
-            [x.strip() for x in options['source_column_index'].split(",")]
+                [x.strip() for x in options['source_column_index'].split(",")]
 
-        if options['delimiter'] == "custom":
-            if not options['custom_delimiter_string']:
-                raise CommandError("custom_delimiter_string was not specified")
+        if (
+            options['delimiter'] == "custom"
+            and not options['custom_delimiter_string']
+        ):
+            raise CommandError("custom_delimiter_string was not specified")
         try:
             with open(options['file_name']) as metadata_file:
                 dataset_uuid = process_metadata_table(
@@ -143,9 +145,8 @@ class Command(BaseCommand):
                     custom_delimiter_string=options['custom_delimiter_string']
                 )
         except IOError as exc:
-            raise CommandError("Could not open file '%s': %s" %
-                               (options['file_name'], exc))
+            raise CommandError(f"Could not open file '{options['file_name']}': {exc}")
         except ValueError as exc:
             raise CommandError(exc)
 
-        self.stdout.write("Created dataset with UUID '%s'" % dataset_uuid)
+        self.stdout.write(f"Created dataset with UUID '{dataset_uuid}'")

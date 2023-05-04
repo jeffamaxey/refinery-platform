@@ -79,14 +79,14 @@ def conf(mode=None):
         abort("usage: fab vm conf:<mode>")
     modes = ['dev', 'djdt', 'gdev', 'prod']
     if mode not in modes:
-        abort("Mode must be one of {}".format(modes))
-    puts("Switching Refinery running on Vagrant VM to '{}' mode".format(mode))
+        abort(f"Mode must be one of {modes}")
+    puts(f"Switching Refinery running on Vagrant VM to '{mode}' mode")
     env.shell_before = "export DJANGO_SETTINGS_MODULE=config.settings.*"
-    env.shell_after = \
-        "export DJANGO_SETTINGS_MODULE=config.settings.{}".format(mode)
+    env.shell_after = f"export DJANGO_SETTINGS_MODULE=config.settings.{mode}"
     env.apache_before = "WSGIScriptAlias .*"
-    env.apache_after = "WSGIScriptAlias / {}/config/wsgi_{}.py".format(
-        env.refinery_app_dir, mode)
+    env.apache_after = (
+        f"WSGIScriptAlias / {env.refinery_app_dir}/config/wsgi_{mode}.py"
+    )
 
     # stop supervisord and Apache
     with prefix("workon {refinery_virtualenv_name}".format(**env)):
@@ -94,8 +94,12 @@ def conf(mode=None):
     sudo("/usr/sbin/service apache2 stop")
     # update DJANGO_SETTINGS_MODULE
     home_dir = run("echo ~", quiet=True)
-    sed("{}/.profile".format(home_dir), before=env.shell_before,
-        after=env.shell_after, backup='')
+    sed(
+        f"{home_dir}/.profile",
+        before=env.shell_before,
+        after=env.shell_after,
+        backup='',
+    )
     # update WSGIScriptAlias value
     sed('/etc/apache2/sites-available/25-refinery.conf',
         before=env.apache_before, after=env.apache_after, backup='',

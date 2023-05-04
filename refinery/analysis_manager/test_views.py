@@ -17,9 +17,7 @@ class AnalysisViewsTests(AnalysisManagerTestBase):
     def setUp(self):
         super(AnalysisViewsTests, self).setUp()
         self.request_factory = RequestFactory()
-        self.status_url_root = "/analysis_manager/{}/".format(
-            self.analysis.uuid
-        )
+        self.status_url_root = f"/analysis_manager/{self.analysis.uuid}/"
 
     @mock.patch.object(AnalysisStatus,
                        "refinery_import_state",

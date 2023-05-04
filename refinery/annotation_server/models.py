@@ -17,7 +17,7 @@ class Taxon(models.Model):
         unique_together = ("taxon_id", "name")
 
     def __str__(self):
-        return "%s: %s" % (self.taxon_id, self.name)
+        return f"{self.taxon_id}: {self.name}"
 
 
 class GenomeBuild(models.Model):
@@ -32,7 +32,7 @@ class GenomeBuild(models.Model):
     default_build = models.BooleanField(default=False)
 
     def __str__(self):
-        return "%s: %s" % (self.name, self.description)
+        return f"{self.name}: {self.description}"
 
 
 def species_to_taxon_id(species_name):
@@ -43,16 +43,12 @@ def species_to_taxon_id(species_name):
     equivalent
     :raises: Taxon.DoesNotExist -- raised if there's no match in db
     """
-    ret_list = list()
+    ret_list = []
     query_list = Taxon.objects.filter(name__iexact=species_name)
 
     if not query_list.count():  # if nothing came back
         raise Taxon.DoesNotExist
-    # get unique list of taxon IDs
-    query_set = set()
-    for item in query_list:
-        query_set.add(item.taxon_id)
-
+    query_set = {item.taxon_id for item in query_list}
     for taxon_id in query_set:
         item = Taxon.objects.get(taxon_id=taxon_id, type='scientific name')
         ret_list.append((item.name, item.taxon_id))
@@ -67,8 +63,7 @@ def taxon_id_to_genome_build(taxon_id):
     :returns: string -- default_genome_build
     """
     org = Taxon.objects.get(taxon_id=taxon_id, type='scientific name')
-    default_gb = GenomeBuild.objects.get(default_build=True, species=org).name
-    return default_gb
+    return GenomeBuild.objects.get(default_build=True, species=org).name
 
 
 def species_to_genome_build(species_name):
@@ -79,16 +74,12 @@ def species_to_genome_build(species_name):
     tuples
     :raises: Taxon.DoesNotExist, GenomeBuild.DoesNotExist
     """
-    ret_list = list()
+    ret_list = []
     query_list = Taxon.objects.filter(name__iexact=species_name)
 
     if not query_list.count():  # if no species matches the given name
         raise Taxon.DoesNotExist
-    # get unique list of taxon IDs
-    query_set = set()
-    for item in query_list:
-        query_set.add(item.taxon_id)
-
+    query_set = {item.taxon_id for item in query_list}
     for taxon_id in query_set:
         try:
             org = Taxon.objects.get(taxon_id=taxon_id, type='scientific name')
@@ -129,7 +120,7 @@ class CytoBand (models.Model):
     gieStain = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.chrom + " - " + self.name
+        return f"{self.chrom} - {self.name}"
 
     class Meta:
         ordering = ['chrom', 'chromStart']
@@ -169,7 +160,7 @@ class Gene (models.Model):
     exonFrames = models.CommaSeparatedIntegerField(max_length=3700)
 
     def __str__(self):
-        return self.name + " - " + self.chrom
+        return f"{self.name} - {self.chrom}"
 
     class Meta:
         ordering = ['chrom', 'txStart']
@@ -191,7 +182,7 @@ class GapRegionFile(models.Model):
     bridge = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.chrom + ":" + self.chromStart + "-" + self.chromEnd
+        return f"{self.chrom}:{self.chromStart}-{self.chromEnd}"
 
     class Meta:
         ordering = ['chrom', 'chromStart']
@@ -210,7 +201,7 @@ class WigDescription(models.Model):
     description = models.TextField()
 
     def __str__(self):
-        return self.name + "=" + self.description + ", " + self.type
+        return f"{self.name}={self.description}, {self.type}"
 
 
 class BedFile (models.Model):
@@ -232,8 +223,7 @@ class BedFile (models.Model):
     blockStarts = models.CommaSeparatedIntegerField(max_length=3700)
 
     def __str__(self):
-        return self.name + " - " + self.chrom + ":" \
-               + self.chromStart + "-" + self.chromEnd
+        return f"{self.name} - {self.chrom}:{self.chromStart}-{self.chromEnd}"
 
     class Meta:
         abstract = True
@@ -256,8 +246,7 @@ class GffFile (models.Model):
     attribute = models.TextField()
 
     def __str__(self):
-        return self.feature + " - " + self.chrom + ":" + \
-               self.start + "-" + self.end
+        return f"{self.feature} - {self.chrom}:{self.start}-{self.end}"
 
     class Meta:
         abstract = True
@@ -272,8 +261,7 @@ class GtfFile (GffFile):
     transcript_id = models.CharField(max_length=255, db_index=True)
 
     def __str__(self):
-        return self.gene_id + " - " + self.chrom + ":" + \
-               self.start + "-" + self.end
+        return f"{self.gene_id} - {self.chrom}:{self.start}-{self.end}"
 
     class Meta:
         abstract = True
@@ -292,7 +280,7 @@ class WigFile(models.Model):
     value = models.FloatField()
 
     def __str__(self):
-        return self.chrom + ":" + self.position + " = " + self.value
+        return f"{self.chrom}:{self.position} = {self.value}"
 
     class Meta:
         abstract = True

@@ -18,7 +18,7 @@ class Instance(models.Model):
                                    null=True, blank=True)
 
     def __str__(self):
-        return self.description + " (" + self.api_key + ")"
+        return f"{self.description} ({self.api_key})"
 
     def galaxy_connection(self):
         return galaxy.GalaxyInstance(url=self.base_url, key=self.api_key)

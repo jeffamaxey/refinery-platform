@@ -26,7 +26,7 @@ try:
     with open(local_settings_file_path, 'r') as f:
         local_settings = json.load(f)
 except IOError as e:
-    error_msg = "Could not open '{}': {}".format(local_settings_file_path, e)
+    error_msg = f"Could not open '{local_settings_file_path}': {e}"
     raise ImproperlyConfigured(error_msg)
 
 # load tutorial_steps.json
@@ -34,9 +34,7 @@ try:
     with open(tutorial_settings_file_path, 'r') as f:
         refinery_tutorial_settings = json.dumps(json.load(f))
 except IOError as e:
-    error_msg = "Could not open '{}': {}".format(
-        tutorial_settings_file_path, e
-    )
+    error_msg = f"Could not open '{tutorial_settings_file_path}': {e}"
     raise ImproperlyConfigured(error_msg)
 
 
@@ -375,25 +373,26 @@ REFINERY_SOLR_SPACE_DYNAMIC_FIELDS = get_setting(
 
 HAYSTACK_CONNECTIONS = {
     'default': {
-        # Haystack requires a default, but there's less risk of confusion
-        # for us if the core is explicit on each call.
-        # So: Leave this in, but it's just a placeholder.
         'ENGINE': 'haystack.backends.solr_backend.SolrEngine',
-        'URL': REFINERY_SOLR_BASE_URL + 'default',
-        'EXCLUDED_INDEXES': ['data_set_manager.search_indexes.NodeIndex',
-                             'core.search_indexes.DataSetIndex',
-                             'core.search_indexes.ProjectIndex'],
+        'URL': f'{REFINERY_SOLR_BASE_URL}default',
+        'EXCLUDED_INDEXES': [
+            'data_set_manager.search_indexes.NodeIndex',
+            'core.search_indexes.DataSetIndex',
+            'core.search_indexes.ProjectIndex',
+        ],
     },
     'core': {
         'ENGINE': 'haystack.backends.solr_backend.SolrEngine',
-        'URL': REFINERY_SOLR_BASE_URL + 'core',
+        'URL': f'{REFINERY_SOLR_BASE_URL}core',
         'EXCLUDED_INDEXES': ['data_set_manager.search_indexes.NodeIndex'],
     },
     'data_set_manager': {
         'ENGINE': 'haystack.backends.solr_backend.SolrEngine',
-        'URL': REFINERY_SOLR_BASE_URL + 'data_set_manager',
-        'EXCLUDED_INDEXES': ['core.search_indexes.DataSetIndex',
-                             'core.search_indexes.ProjectIndex'],
+        'URL': f'{REFINERY_SOLR_BASE_URL}data_set_manager',
+        'EXCLUDED_INDEXES': [
+            'core.search_indexes.DataSetIndex',
+            'core.search_indexes.ProjectIndex',
+        ],
     },
 }
 

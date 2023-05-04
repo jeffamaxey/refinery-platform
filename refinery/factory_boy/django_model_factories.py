@@ -6,16 +6,19 @@ import factory
 from data_set_manager.models import Node
 
 
+
+
 class DataSetFactory(factory.django.DjangoModelFactory):
     """Minimal representation of a DataSet"""
     class Meta:
         model = "core.DataSet"
 
     uuid = uuid_builtin.uuid4()
-    title = "Test DataSet - {}".format(uuid)
-    name = "Test DataSet - {}".format(uuid)
+    title = f"Test DataSet - {uuid}"
+    name = f"Test DataSet - {uuid}"
     creation_date = datetime.now()
     modification_date = datetime.now()
+
 
 
 class AssayFactory(factory.django.DjangoModelFactory):
@@ -63,6 +66,8 @@ class AttributeFactory(factory.django.DjangoModelFactory):
         model = "data_set_manager.Attribute"
 
 
+
+
 class AnalysisFactory(factory.django.DjangoModelFactory):
     """Minimal representation of an Analysis"""
     class Meta:
@@ -70,10 +75,11 @@ class AnalysisFactory(factory.django.DjangoModelFactory):
         django_get_or_create = ('uuid',)
 
     uuid = uuid_builtin.uuid4()
-    name = "Test Analysis - {}".format(uuid)
-    summary = "Summary for {}".format(name)
+    name = f"Test Analysis - {uuid}"
+    summary = f"Summary for {name}"
     creation_date = datetime.now()
     modification_date = datetime.now()
+
 
 
 class ProjectFactory(factory.django.DjangoModelFactory):
@@ -95,13 +101,16 @@ class WorkflowEngineFactory(factory.django.DjangoModelFactory):
         model = "core.WorkflowEngine"
 
 
+
+
 class WorkflowFactory(factory.django.DjangoModelFactory):
     """Minimal representation of a Workflow"""
     class Meta:
         model = "core.Workflow"
 
     uuid = uuid_builtin.uuid4()
-    name = "Test Workflow - {}".format(uuid)
+    name = f"Test Workflow - {uuid}"
+
 
 
 class NodeCollectionFactory(factory.django.DjangoModelFactory):

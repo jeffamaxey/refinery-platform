@@ -99,7 +99,7 @@ def _get_unique_parent_attributes(nodes, node_id):
         return attributes
 
     for parent_id in nodes[node_id]["parents"]:
-        attributes.update(_get_unique_parent_attributes(nodes, parent_id))
+        attributes |= _get_unique_parent_attributes(nodes, parent_id)
 
     for attr in nodes[node_id]["attributes"]:
         attributes[attr[0]] = attr
@@ -140,14 +140,11 @@ def _retrieve_nodes(study_uuid, assay_uuid=None,
     attribute_list = Attribute.objects.filter().order_by('id').\
         values_list(*attribute_fields)
 
-    attributes = {}
     current_id = None
     current_node = None
     nodes = {}
 
-    for attribute in attribute_list:
-        attributes[attribute[0]] = attribute
-
+    attributes = {attribute[0]: attribute for attribute in attribute_list}
     for node in node_list:
         if current_id is None or current_id != node["id"]:
             # save current node
@@ -305,10 +302,7 @@ def update_annotated_nodes(
             ]) > 1:
         # This should exclude CSV imports
         # TODO: Not happy about this hack at all.
-        error_message = (
-            "Exponential explosion! Creation of {} annotated nodes for {} "
-            "nodes of type {}"
-        ).format(total_attrs, num_nodes_of_type, node_type)
+        error_message = f"Exponential explosion! Creation of {total_attrs} annotated nodes for {num_nodes_of_type} nodes of type {node_type}"
 
         logger.error(error_message)
 
@@ -400,16 +394,15 @@ def _add_annotated_nodes(
     bulk_list = []
 
     for node_id, node in nodes.items():
-        if node["type"] == node_type:
-            if node["uuid"] in node_uuids:
-                bulk_list, num_created = _create_annotated_node_objs(
-                    bulk_list,
-                    node,
-                    study,
-                    assay,
-                    _get_unique_parent_attributes(nodes, node_id)
-                )
-                counter += num_created
+        if node["type"] == node_type and node["uuid"] in node_uuids:
+            bulk_list, num_created = _create_annotated_node_objs(
+                bulk_list,
+                node,
+                study,
+                assay,
+                _get_unique_parent_attributes(nodes, node_id)
+            )
+            counter += num_created
 
     _create_annotated_node_objs(bulk_list)
 
@@ -490,33 +483,34 @@ def generate_solr_params(params, assay_uuids, facets_from_config=False,
     sort = params.get('sort')
     fixed_solr_params = {
         "facet.limit": "-1",
-        "fq": "is_annotation:{}".format(is_annotation),
+        "fq": f"is_annotation:{is_annotation}",
         "rows": row,
         "start": start,
-        "wt": "json"
+        "wt": "json",
     }
 
-    filter_arr = [
-        'assay_uuid:({})'.format(' OR '.join([str(u) for u in assay_uuids]))
-    ]
+    filter_arr = [f"assay_uuid:({' OR '.join([str(u) for u in assay_uuids])})"]
     field_limit = []  # limit attributes to return
-    facet_fields_obj = {}  # requested facets formatted for solr
     if facets_from_config:
+        facet_template = '{0}_Characteristics{1}'
         # Design choice to leave out _factor to avoid duplicate attributes
-        for facet in settings.USER_FILES_FACETS.split(","):
-            facet_template = '{0}_Characteristics{1}'
+        for _ in settings.USER_FILES_FACETS.split(","):
             facet_field = ','.join(
                 [facet_template.format(s, NodeIndex.GENERIC_SUFFIX) for s
                  in settings.USER_FILES_FACETS.split(",")]
             )
 
-        field_limit.extend(["*{}".format(NodeIndex.GENERIC_SUFFIX),
-                            "name",
-                            "*_uuid",
-                            "uuid",
-                            "type",
-                            "django_id",
-                            NodeIndex.DOWNLOAD_URL])
+        field_limit.extend(
+            [
+                f"*{NodeIndex.GENERIC_SUFFIX}",
+                "name",
+                "*_uuid",
+                "uuid",
+                "type",
+                "django_id",
+                NodeIndex.DOWNLOAD_URL,
+            ]
+        )
 
     if facet_field:
         facet_field_arr = facet_field.split(',')
@@ -535,13 +529,14 @@ def generate_solr_params(params, assay_uuids, facets_from_config=False,
         facet_field_arr = facet_field_obj.get('facet_field')
         field_limit.extend(facet_field_obj.get('field_limit'))
 
-    for facet in facet_field_arr:
-        facet_fields_obj[facet] = {
+    facet_fields_obj = {
+        facet: {
             "type": "terms",
             "field": facet,
-            "mincount": 1 if facets_from_config else 0
+            "mincount": 1 if facets_from_config else 0,
         }
-
+        for facet in facet_field_arr
+    }
     if facet_filter:
         if isinstance(facet_filter, str):
             facet_filter = urlunquote(facet_filter)
@@ -559,17 +554,15 @@ def generate_solr_params(params, assay_uuids, facets_from_config=False,
     if sort:
         fixed_solr_params['sort'] = sort
 
-    solr_params = {
+    return {
         "json": {
             "query": 'django_ct:data_set_manager.node',
             "facet": facet_fields_obj,
             "filter": filter_arr,
-            "fields": field_limit
+            "fields": field_limit,
         },
-        "params": fixed_solr_params
+        "params": fixed_solr_params,
     }
-
-    return solr_params
 
 
 def cull_attributes_from_list(attribute_list, attribute_names_to_remove):
@@ -635,17 +628,13 @@ def is_field_in_hidden_list(field):
                      'study_uuid', 'assay_uuid', 'type', 'is_annotation',
                      'species', 'genome_build', 'name', 'django_ct']
 
-    if field in hidden_fields or NodeIndex.GENERIC_SUFFIX in field:
-        return True
-    else:
-        return False
+    return field in hidden_fields or NodeIndex.GENERIC_SUFFIX in field
 
 
 def generate_filtered_facet_fields(attributes):
     """ Returns a filter facet field list. Attribute order contains whether
     facets should be used. Based on is_exposed and is_facet."""
     weighted_facet_list = []
-    field_limit_list = []
     facet_field = []
     filtered_attributes = hide_fields_from_list(attributes)
 
@@ -656,9 +645,9 @@ def generate_filtered_facet_fields(attributes):
                 facet_field.append(field.get('solr_field'))
 
     weighted_facet_list.sort(key=lambda x: x[0])
-    for (rank, field) in weighted_facet_list:
-        field_limit_list.append(field.get("solr_field"))
-
+    field_limit_list = [
+        field.get("solr_field") for rank, field in weighted_facet_list
+    ]
     # add refinery_datafile_s index here
     field_limit_list.insert(0, NodeIndex.DATAFILE)
 
@@ -681,24 +670,15 @@ def search_solr(encoded_params, core):
         try:
             response_obj = json.loads(full_response.content.decode())
         except ValueError:
-            raise RuntimeError(
-                'Expected Solr JSON, not: {}'.format(
-                    str(full_response.content)
-                )
-            )
+            raise RuntimeError(f'Expected Solr JSON, not: {str(full_response.content)}')
         try:
-            raise RuntimeError('Solr error: {}\nin context: {}'.format(
-                response_obj['error']['msg'],
-                response_obj
-            ))
-        except KeyError:
             raise RuntimeError(
-                'Not expected response structure: {}'.format(response_obj)
+                f"Solr error: {response_obj['error']['msg']}\nin context: {response_obj}"
             )
+        except KeyError:
+            raise RuntimeError(f'Not expected response structure: {response_obj}')
 
-    response = full_response.content
-
-    return response
+    return full_response.content
 
 
 def get_owner_from_assay(uuid):
@@ -798,13 +778,15 @@ def customize_attribute_response(facet_fields):
         if len(field_name) > 1:
             customized_field['file_ext'] = field_name[-1]
 
-        field_edit_type = ''
         field_normalized = field.replace('_', ' ')
-        for edit_type in Attribute.editable_types:
-            if edit_type in field_normalized:
-                field_edit_type = edit_type
-                break
-
+        field_edit_type = next(
+            (
+                edit_type
+                for edit_type in Attribute.editable_types
+                if edit_type in field_normalized
+            ),
+            '',
+        )
         if 'REFINERY_SUBANALYSIS' in field:
             customized_field['display_name'] = 'Analysis Group'
             customized_field['attribute_type'] = 'Internal'
@@ -820,16 +802,14 @@ def customize_attribute_response(facet_fields):
         elif field_edit_type:
             index = field_name.index(field_edit_type.split(' ')[0])
             # some attributes don't have a name hence the default 1
-            field_name = ' '.join(field_name[0:index or 1])
+            field_name = ' '.join(field_name[:index or 1])
             customized_field['display_name'] = field_name.title()
             customized_field['attribute_type'] = field_edit_type
-        # For uuid fields
         elif len(field_name) == 1:
             customized_field['display_name'] = \
                 customized_field['internal_name']
         else:
-            customized_field['display_name'] = ' '.join(
-                    field_name[0:-3]).title()
+            customized_field['display_name'] = ' '.join(field_name[:-3]).title()
 
         attribute_array.append(customized_field)
 
@@ -889,20 +869,36 @@ def update_attribute_order_ranks(old_attribute, new_rank):
     for attribute in attribute_list:
         attribute_new_rank = int(attribute.rank)
 
-        if attribute == old_attribute:
-            attribute_new_rank = new_rank
-        elif new_rank == 0:
-            if old_rank < attribute.rank:
-                attribute_new_rank = attribute.rank-1
-        elif old_rank == 0:
-            if old_rank < attribute.rank >= new_rank:
-                attribute_new_rank = attribute.rank+1
+        if (
+            attribute != old_attribute
+            and new_rank == 0
+            and old_rank < attribute.rank
+            or attribute != old_attribute
+            and new_rank != 0
+            and old_rank != 0
+            and not old_rank > attribute.rank >= new_rank
+            and old_rank < attribute.rank <= new_rank
+        ):
+            attribute_new_rank = attribute.rank-1
+        elif (
+            attribute != old_attribute
+            and new_rank == 0
+            or attribute != old_attribute
+            and old_rank == 0
+            and not old_rank < attribute.rank >= new_rank
+            or attribute != old_attribute
+            and old_rank != 0
+            and not old_rank > attribute.rank >= new_rank
+        ):
+            pass
+        elif (
+            attribute != old_attribute
+            and old_rank == 0
+            or attribute != old_attribute
+        ):
+            attribute_new_rank = attribute.rank+1
         else:
-            if old_rank > attribute.rank >= new_rank:
-                attribute_new_rank = attribute.rank+1
-            elif old_rank < attribute.rank <= new_rank:
-                attribute_new_rank = attribute.rank-1
-
+            attribute_new_rank = new_rank
         serializer = AttributeOrderSerializer(
                         attribute,
                         {'rank': attribute_new_rank},
@@ -933,29 +929,21 @@ def get_file_url_from_node_uuid(node_uuid, require_valid_url=False):
     try:
         node = Node.objects.get(uuid=node_uuid)
     except (Node.DoesNotExist, Node.MultipleObjectsReturned):
-        raise RuntimeError("Couldn't fetch Node by UUID from: {}"
-                           .format(node_uuid))
+        raise RuntimeError(f"Couldn't fetch Node by UUID from: {node_uuid}")
     else:
         try:
             url = node.file_item.get_datafile_url()
         except AttributeError:
             url = None
-        if require_valid_url:
-            if url is None:
-                raise RuntimeError(
-                    "Node with uuid: {} has no associated file url"
-                    .format(node_uuid)
-                )
+        if require_valid_url and url is None:
+            raise RuntimeError(f"Node with uuid: {node_uuid} has no associated file url")
         try:
             return core.utils.build_absolute_url(url) if url else None
         except ValueError:
-            logger.error('URL {} is not a valid relative url'.format(str(url)))
+            logger.error(f'URL {str(url)} is not a valid relative url')
             raise
         except RuntimeError:
-            logger.error('Could not build absolute URL for {}'.format(
-                    str(url)
-                )
-            )
+            logger.error(f'Could not build absolute URL for {str(url)}')
             raise
 
 
@@ -975,35 +963,24 @@ def fix_last_column(file):
     # check that all rows have the same length
     header = next(reader)
     header_length = len(header)
-    num_empty_cols = 0  # number of empty header columns
-    # TODO: throw exception if there is an empty field in the header between
-    # two non-empty fields
-    for item in header:
-        if not item.strip():
-            num_empty_cols += 1
+    num_empty_cols = sum(1 for item in header if not item.strip())
     # write the file
     writer.writerow(header[:-num_empty_cols])
     if num_empty_cols > 0:  # if there are empty header columns
         logger.info("Empty columns in header present, attempting to fix...")
-        # check that all the rows are the same length
-        line = 0
-        for row in reader:
-            line += 1
+        for line, row in enumerate(reader, start=1):
             if len(row) < header_length - num_empty_cols:
-                logger.error(
-                    "Line " + str(line) + " in the file had fewer fields than "
-                    "the header.")
+                logger.error(f"Line {str(line)} in the file had fewer fields than the header.")
                 return False
-            # check that all the end columns that are supposed to be empty are
-            i = 0
             if len(row) > len(header) - num_empty_cols:
+                # check that all the end columns that are supposed to be empty are
+                i = 0
                 while i < num_empty_cols:
                     i += 1
-                    check_item = row[-i].strip()
-                    if check_item:  # item not empty
+                    if check_item := row[-i].strip():
                         logger.error(
-                            "Found a value in " + str(line) +
-                            " where an empty column was expected.")
+                            f"Found a value in {str(line)} where an empty column was expected."
+                        )
                         return False
                 writer.writerow(row[:-num_empty_cols])
             else:
@@ -1020,13 +997,10 @@ def _create_solr_params_from_node_uuids(node_uuids):
     return {
         'json': {
             "query": "django_ct:data_set_manager.node",
-            "filter": "uuid:({})".format(" OR ".join(node_uuids)),
-            },
-        'params': {
-            "wt": "json",
-            "rows": constants.REFINERY_SOLR_DOC_LIMIT
-            }
-        }
+            "filter": f'uuid:({" OR ".join(node_uuids)})',
+        },
+        'params': {"wt": "json", "rows": constants.REFINERY_SOLR_DOC_LIMIT},
+    }
 
 
 def get_solr_response_json(node_uuids):

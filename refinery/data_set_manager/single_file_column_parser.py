@@ -59,11 +59,11 @@ class SingleFileColumnParser:
         # single character to be used to separate columns
         if delimiter == "comma":
             self.delimiter = ","
-        if delimiter == "tab":
-            self.delimiter = "\t"
-        if delimiter == "custom":
+        elif delimiter == "custom":
             self.delimiter = custom_delimiter_string
 
+        elif delimiter == "tab":
+            self.delimiter = "\t"
         # metadata file object
         self.metadata_file = metadata_file
         self.metadata_file.seek(0)
@@ -98,7 +98,7 @@ class SingleFileColumnParser:
         # last column of the file (-1 = last column)
         if auxiliary_file_column_index and auxiliary_file_column_index < 0:
             self.auxiliary_file_column_index = \
-                self.num_columns + auxiliary_file_column_index
+                    self.num_columns + auxiliary_file_column_index
         else:
             self.auxiliary_file_column_index = auxiliary_file_column_index
 
@@ -160,8 +160,7 @@ class SingleFileColumnParser:
 
     def _is_annotation(self, row):
         if self.annotation_column_index is not None:
-            return bool(
-                "true" == row[self.annotation_column_index].lower().strip())
+            return row[self.annotation_column_index].lower().strip() == "true"
         return False
 
     def _create_name(self, row, internal_column_index,
@@ -418,10 +417,7 @@ def process_metadata_table(
                          'updated with revised investigation %s: %s',
                          existing_data_set_uuid, str(investigation), e)
             raise type(e)(
-                'DataSet for uuid {} not fetched and thus not '
-                'updated with revised investigation {}'.format(
-                    existing_data_set_uuid, str(investigation)
-                )
+                f'DataSet for uuid {existing_data_set_uuid} not fetched and thus not updated with revised investigation {str(investigation)}'
             )
         else:
             data_set.update_with_revised_investigation(investigation)

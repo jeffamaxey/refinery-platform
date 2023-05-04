@@ -18,39 +18,38 @@ logger = logging.getLogger(__name__)
 
 def analysis_status(request, uuid):
     """Returns analysis status"""
-    if request.method == 'GET':
+    if request.method != 'GET':
+        return HttpResponseNotAllowed(['GET'])
+    try:
+        analysis = Analysis.objects.get(uuid=uuid)
+    except (Analysis.DoesNotExist,
+            Analysis.MultipleObjectsReturned) as e:
+        logger.error(e)
+        return HttpResponseBadRequest(e)
+
+    public_group = ExtendedGroup.objects.public_group()
+    if request.user.has_perm('core.read_meta_dataset', analysis.data_set)\
+            or 'read_meta_dataset' in get_perms(public_group,
+                                                analysis.data_set):
         try:
-            analysis = Analysis.objects.get(uuid=uuid)
-        except (Analysis.DoesNotExist,
-                Analysis.MultipleObjectsReturned) as e:
+            status = AnalysisStatus.objects.get(analysis=analysis)
+        except (AnalysisStatus.DoesNotExist,
+                AnalysisStatus.MultipleObjectsReturned) as e:
             logger.error(e)
             return HttpResponseBadRequest(e)
 
-        public_group = ExtendedGroup.objects.public_group()
-        if request.user.has_perm('core.read_meta_dataset', analysis.data_set)\
-                or 'read_meta_dataset' in get_perms(public_group,
-                                                    analysis.data_set):
-            try:
-                status = AnalysisStatus.objects.get(analysis=analysis)
-            except (AnalysisStatus.DoesNotExist,
-                    AnalysisStatus.MultipleObjectsReturned) as e:
-                logger.error(e)
-                return HttpResponseBadRequest(e)
+        ret_json = {
+            'refineryImport': status.refinery_import_state(),
+            'galaxyAnalysis': status.galaxy_analysis_state(),
+            'galaxyExport': status.galaxy_export_state(),
+            'overall': analysis.get_status(),
+            'galaxyImport': status.galaxy_file_import_state()
+        }
+        logger.debug("Analysis status for '%s': %s",
+                     analysis.name, json.dumps(ret_json))
+        return JsonResponse(ret_json)
 
-            ret_json = {
-                'refineryImport': status.refinery_import_state(),
-                'galaxyAnalysis': status.galaxy_analysis_state(),
-                'galaxyExport': status.galaxy_export_state(),
-                'overall': analysis.get_status(),
-                'galaxyImport': status.galaxy_file_import_state()
-            }
-            logger.debug("Analysis status for '%s': %s",
-                         analysis.name, json.dumps(ret_json))
-            return JsonResponse(ret_json)
-
-        return HttpResponseForbidden("User is not authorized to access {}"
-                                     .format(analysis))
-    return HttpResponseNotAllowed(['GET'])
+    return HttpResponseForbidden(f"User is not authorized to access {analysis}")
 
 
 @login_required
@@ -64,12 +63,12 @@ def analysis_cancel(request):
             uuid = json.loads(request.body.decode())['uuid']
         except KeyError:
             return HttpResponseBadRequest()  # 400
-        error_msg = "Cancellation failed for analysis '{}'".format(uuid)
+        error_msg = f"Cancellation failed for analysis '{uuid}'"
         try:
             analysis = Analysis.objects.get(uuid=uuid)
         except (Analysis.DoesNotExist,
                 Analysis.MultipleObjectsReturned) as exc:
-            logger.error(error_msg + ": " + str(exc))
+            logger.error(f"{error_msg}: {str(exc)}")
             return HttpResponseServerError()  # 500
         # check if the user has permission to cancel this analysis
         if (request.user == analysis.get_owner() or

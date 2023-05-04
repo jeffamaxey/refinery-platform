@@ -144,8 +144,8 @@ class AddFileToNodeViewTests(APITestCase):
     @mock.patch('data_set_manager.models.Node.update_solr_index')
     def test_non_aws_post_file_store_item_source_translated(self,
                                                             update_solr_mock):
-        file_store_item_source = '{}/{}/test.txt'.format(
-            settings.REFINERY_DATA_IMPORT_DIR, self.user.username
+        file_store_item_source = (
+            f'{settings.REFINERY_DATA_IMPORT_DIR}/{self.user.username}/test.txt'
         )
         self.node.file_item.source = file_store_item_source
         self.node.file_item.save()
@@ -187,35 +187,29 @@ class AssayAPIViewTests(APITestCase):
         self.invalid_uuid = "xxxxxxxx"
 
     def test_get_valid_uuid(self):
-        request = self.factory.get(self.url_root + '?uuid=' + self.valid_uuid)
+        request = self.factory.get(f'{self.url_root}?uuid={self.valid_uuid}')
         response = self.view(request, self.valid_uuid)
         self.assertEqual(response.status_code, 200)
         self.assertDictContainsSubset(response.data, self.assay_dict)
 
     def test_get_valid_study(self):
-        request = self.factory.get(self.url_root + '?study=' + self.study.uuid)
+        request = self.factory.get(f'{self.url_root}?study={self.study.uuid}')
         response = self.view(request, self.valid_uuid)
         self.assertEqual(response.status_code, 200)
         self.assertDictContainsSubset(response.data[0], self.assay_dict)
 
     def test_get_unknown_uuid(self):
-        request = self.factory.get(
-            self.url_root + '?uuid=' + self.unknown_uuid
-        )
+        request = self.factory.get(f'{self.url_root}?uuid={self.unknown_uuid}')
         response = self.view(request, self.unknown_uuid)
         self.assertEqual(response.status_code, 404)
 
     def test_get_unknown_study_uuid(self):
-        request = self.factory.get(
-            self.url_root + '?study=' + self.unknown_uuid
-        )
+        request = self.factory.get(f'{self.url_root}?study={self.unknown_uuid}')
         response = self.view(request, self.unknown_uuid)
         self.assertEqual(response.status_code, 404)
 
     def test_get_invalid_uuid(self):
-        request = self.factory.get(
-            self.url_root + '?uuid=' + self.invalid_uuid
-        )
+        request = self.factory.get(f'{self.url_root}?uuid={self.invalid_uuid}')
         response = self.view(request, self.invalid_uuid)
         self.assertEqual(response.status_code, 400)
 
@@ -573,8 +567,7 @@ class AssayFileAPITests(APITestCase):
         mock_format.return_value = {'status': 200}
         self.client.login(username=self.user_guest,
                           password=self.fake_password)
-        assign_perm('read_%s' % DataSet._meta.model_name, self.user2,
-                    self.data_set)
+        assign_perm(f'read_{DataSet._meta.model_name}', self.user2, self.data_set)
         params = {'limit': '0',
                   'data_set_uuid': self.data_set.uuid}
         response = self.client.get(self.url.format(self.valid_uuid), params)
@@ -593,8 +586,7 @@ class AssayFileAPITests(APITestCase):
         mock_format.return_value = {'status': 200}
         self.client.login(username=self.user_guest,
                           password=self.fake_password)
-        assign_perm('read_meta_%s' % DataSet._meta.model_name, self.user2,
-                    self.data_set)
+        assign_perm(f'read_meta_{DataSet._meta.model_name}', self.user2, self.data_set)
         params = {'limit': '0',
                   'data_set_uuid': self.data_set.uuid}
         response = self.client.get(self.url.format(self.valid_uuid), params)
@@ -686,9 +678,9 @@ class CheckDataFilesViewTests(MetadataImportTestBase):
 
     def test_check_datafiles_non_existing_data_set_uuid(self):
         response = self.client.post(
-            "{}?data_set_uuid={}".format(self.check_files_url, uuid.uuid4()),
+            f"{self.check_files_url}?data_set_uuid={uuid.uuid4()}",
             content_type="application/json",
-            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
         self.assertEqual(response.status_code, 404)
 
@@ -703,10 +695,10 @@ class CheckDataFilesViewTests(MetadataImportTestBase):
 
         data_set = DataSet.objects.last()
         response = self.client.post(
-            "{}?data_set_uuid={}".format(self.check_files_url, data_set.uuid),
+            f"{self.check_files_url}?data_set_uuid={data_set.uuid}",
             content_type="application/json",
             data=json.dumps({"list": ["test1.txt", "test2.txt"]}),
-            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
         self.assertEqual(
             json.loads(response.content.decode()),
@@ -727,10 +719,10 @@ class CheckDataFilesViewTests(MetadataImportTestBase):
 
         data_set = DataSet.objects.last()
         response = self.client.post(
-            "{}?data_set_uuid={}".format(self.check_files_url, data_set.uuid),
+            f"{self.check_files_url}?data_set_uuid={data_set.uuid}",
             content_type="application/json",
             data=json.dumps({"list": ["fake.txt"]}),
-            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
         self.assertEqual(
             json.loads(response.content.decode()),
@@ -822,12 +814,14 @@ class NodeViewAPIV2Tests(APIV2TestCase):
                                        {'study_uuid': self.study_uuid})
         get_request.user = self.user
         get_response = self.get_list_view(get_request)
-        file_node_response = None
-        for node in get_response.data:
-            if file_node.uuid == node.get('uuid'):
-                file_node_response = node
-                break
-
+        file_node_response = next(
+            (
+                node
+                for node in get_response.data
+                if file_node.uuid == node.get('uuid')
+            ),
+            None,
+        )
         self.assertEqual(
             file_item_uuid,
             file_node_response.get('file_uuid')
@@ -964,8 +958,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
         annotated_node = AnnotatedNode.objects.filter(
             node=node, attribute_subtype='organism'
         )[0]
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         get_request = self.factory.get(urljoin(self.url_root, self.node.uuid),
                                        {'related_attribute_nodes': solr_name})
         guest_user = User.objects.create_user('guest_user',
@@ -982,8 +975,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
         annotated_node = AnnotatedNode.objects.filter(
             node=node, attribute_subtype='organism'
         )[0]
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         get_request = self.factory.get(urljoin(self.url_root, node.uuid),
                                        {'related_attribute_nodes': solr_name})
 
@@ -1003,8 +995,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
             node=file_node,
             attribute_subtype='organism part'
         )[0]
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         get_request = self.factory.get(urljoin(self.url_root, file_node.uuid),
                                        {'related_attribute_nodes': solr_name})
 
@@ -1068,8 +1059,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
         annotated_node = AnnotatedNode.objects.filter(
             node=node, attribute_subtype='organism'
         )[0]
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         patch_request = self.factory.patch(urljoin(self.url_root, node.uuid),
                                            {"attribute_solr_name": solr_name,
                                             "attribute_value": new_value})
@@ -1087,8 +1077,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
         annotated_node = AnnotatedNode.objects.filter(
             node=node, attribute_subtype='organism'
         )[0]
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         patch_request = self.factory.patch(
             urljoin(self.url_root, node.uuid),
             {"attribute_solr_name": solr_name,
@@ -1107,8 +1096,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
         annotated_node = AnnotatedNode.objects.filter(
             node=node, attribute_subtype='organism'
         )[0]
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         patch_request = self.factory.patch(
             urljoin(self.url_root, node.uuid),
             {"attribute_solr_name": solr_name,
@@ -1125,8 +1113,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
         annotated_node = AnnotatedNode.objects.filter(
             node=derived_node, attribute_subtype='organism'
         )[0]
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         patch_request = self.factory.patch(
             urljoin(self.url_root, derived_node.uuid),
             {"attribute_solr_name": solr_name,
@@ -1142,8 +1129,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
         node = self.hg_19_data_set.get_nodes().filter(
             type=Node.RAW_DATA_FILE
         )[0]
-        solr_name = '{}_{}_652_326_s'.format('REFINERY_NAME',
-                                             'Internal')
+        solr_name = 'REFINERY_NAME_Internal_652_326_s'
         patch_request = self.factory.patch(
             urljoin(self.url_root, node.uuid),
             {"attribute_solr_name": solr_name,
@@ -1165,8 +1151,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
             node=file_node, attribute_subtype='organism part'
         )[0]
         new_value = 'cell'
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         patch_request = self.factory.patch(
             urljoin(self.url_root, file_node.uuid),
             {'attribute_solr_name': solr_name,
@@ -1190,8 +1175,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
             attribute_subtype='organism part'
         )[0]
         new_value = 'cell'
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         patch_request = self.factory.patch(
             urljoin(self.url_root, file_node.uuid),
             {"attribute_solr_name": solr_name,
@@ -1223,8 +1207,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
             attribute_subtype='organism part'
         )[0]
         new_value = 'cell'
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         patch_request = self.factory.patch(
             urljoin(self.url_root, file_node.uuid),
             {"attribute_solr_name": solr_name,
@@ -1270,8 +1253,7 @@ class NodeViewAPIV2Tests(APIV2TestCase):
         )[0]
         old_value = annotated_node.attribute_value
         new_value = 'cell'
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         patch_request = self.factory.patch(
             urljoin(self.url_root, file_node.uuid),
             {"attribute_solr_name": solr_name,
@@ -1492,17 +1474,14 @@ class ProcessISATabViewTests(MetadataImportTestBase):
     def test_metadata_revision_fails_with_unclean_dataset(self):
         analyses, data_set = make_analyses_with_single_dataset(1, self.user)
         with open(self.get_test_file_path('rfc-test.zip'), 'rb') \
-                as isa_tab_file:
+                        as isa_tab_file:
             response = self.post_isa_tab(
                 isa_tab_file=isa_tab_file, data_set_uuid=data_set.uuid
             )
             self.assertEqual(response.status_code, 400)
             self.assertEqual(
                 response.content,
-                "ISA-Tab import Failure:  DataSet with UUID: {} is not clean "
-                "(There have been Analyses or Visualizations performed on it) "
-                "Remove these objects and try again"
-                .format(data_set.uuid).encode()
+                f"ISA-Tab import Failure:  DataSet with UUID: {data_set.uuid} is not clean (There have been Analyses or Visualizations performed on it) Remove these objects and try again".encode(),
             )
 
     def test_metadata_revision_is_only_allowed_if_data_set_owner(self):
@@ -1741,12 +1720,8 @@ class ProcessMetadataTableViewTests(MetadataImportTestBase):
         self.assertEqual(
             json.loads(response.content.decode()),
             {
-                "error": (
-                    "DataSet with UUID: {} is not clean (There have been "
-                    "Analyses or Visualizations performed on it) Remove "
-                    "these objects and try again".format(data_set.uuid)
-                )
-            }
+                "error": f"DataSet with UUID: {data_set.uuid} is not clean (There have been Analyses or Visualizations performed on it) Remove these objects and try again"
+            },
         )
 
     def test_metadata_revision_is_only_allowed_if_data_set_owner(self):

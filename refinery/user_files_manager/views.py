@@ -58,10 +58,10 @@ def user_files_csv(request):
         row = [doc.get(NodeIndex.DOWNLOAD_URL) or '']
         for col in cols:
             possibly_unicode = (
-                doc.get(col + '_Characteristics_generic_s') or
-                doc.get(col + '_Factor_Value_generic_s') or
-                doc.get(col) or
-                ''
+                doc.get(f'{col}_Characteristics_generic_s')
+                or doc.get(f'{col}_Factor_Value_generic_s')
+                or doc.get(col)
+                or ''
             )
             row.append(unidecode(possibly_unicode))
         writer.writerow(row)

@@ -65,7 +65,7 @@ def create_dataset(investigation_uuid, username, identifier=None, title=None,
     if title is None:
         title = investigation.get_title()
     if dataset_name is None:
-        dataset_name = "%s: %s" % (identifier, title)
+        dataset_name = f"{identifier}: {title}"
 
     logger.info(
         "create_dataset: title = %s, identifer = %s, dataset_name = '%s'",
@@ -79,8 +79,7 @@ def create_dataset(investigation_uuid, username, identifier=None, title=None,
         for ds in datasets:
             own = ds.get_owner()
             if own == user:
-                ds.update_investigation(investigation,
-                                        "updated %s" % date.today())
+                ds.update_investigation(investigation, f"updated {date.today()}")
                 logger.info("create_dataset: Updated data set %s", ds.name)
                 dataset = ds
                 break
@@ -192,7 +191,7 @@ def parse_isatab(username, public, path, identity_id=None,
         if identifier is None or title is None:
             datasets = []
         else:
-            dataset_title = "%s: %s" % (identifier, title)
+            dataset_title = f"{identifier}: {title}"
             datasets = DataSet.objects.filter(name=dataset_title)
         # check if the investigation already exists
         # if not 0, update dataset with new investigation
@@ -262,19 +261,13 @@ def parse_isatab(username, public, path, identity_id=None,
                              'updated with revised investigation %s: %s',
                              existing_data_set_uuid, str(investigation), e)
                 raise type(e)(
-                    'DataSet for uuid %s not fetched and thus not '
-                    'updated with revised investigation {}: {}'.format(
-                         existing_data_set_uuid, str(investigation)
-                    )
+                    f'DataSet for uuid %s not fetched and thus not updated with revised investigation {existing_data_set_uuid}: {str(investigation)}'
                 )
             else:
                 data_set.update_with_revised_investigation(investigation)
                 return existing_data_set_uuid
 
-        data_set_uuid = create_dataset(
-            investigation.uuid, username, public=public
-        )
-        return data_set_uuid
+        return create_dataset(investigation.uuid, username, public=public)
 
 
 @task(soft_time_limit=180)
@@ -290,17 +283,18 @@ def generate_auxiliary_file(parent_node_uuid):
     auxiliary_file_store_item = FileStoreItem.objects.create()
     parent_node.create_and_associate_auxiliary_node(auxiliary_file_store_item)
     try:
-        if not settings.REFINERY_S3_USER_DATA:
-            datafile_path = parent_node.file_item.datafile.path
-        else:
-            datafile_path = parent_node.file_item.datafile.name
+        datafile_path = (
+            parent_node.file_item.datafile.name
+            if settings.REFINERY_S3_USER_DATA
+            else parent_node.file_item.datafile.path
+        )
     except ValueError:
         logger.error("No datafile for %s", parent_node.file_item)
         generate_auxiliary_file.update_state(state=celery.states.FAILURE)
         raise celery.exceptions.Ignore()
 
     start_time = time.time()
-    logger.debug("Starting auxiliary file gen. for %s" % datafile_path)
+    logger.debug(f"Starting auxiliary file gen. for {datafile_path}")
 
     if parent_node.file_item.get_extension().lower() == 'bam':
         try:
@@ -328,7 +322,7 @@ def generate_bam_index(bam_file_path):
     """Generate a BAM index file given an absolute BAM file path"""
     temp_dir = tempfile.mkdtemp()
     bam_file_name = os.path.basename(bam_file_path)
-    bam_index_file_path = os.path.join(temp_dir, bam_file_name + '.bai')
+    bam_index_file_path = os.path.join(temp_dir, f'{bam_file_name}.bai')
 
     if settings.REFINERY_S3_USER_DATA:
         temp_bam_file_path = os.path.join(temp_dir, bam_file_name)

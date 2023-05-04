@@ -22,11 +22,11 @@ STATIC_BUCKET = get_setting('REFINERY_S3_STATIC_BUCKET_NAME')
 UPLOAD_BUCKET = get_setting('REFINERY_S3_UPLOAD_BUCKET_NAME')
 
 STATICFILES_STORAGE = 'config.utils_aws.S3StaticStorage'
-STATIC_URL = 'https://{}.s3.amazonaws.com/'.format(STATIC_BUCKET)
+STATIC_URL = f'https://{STATIC_BUCKET}.s3.amazonaws.com/'
 
 if REFINERY_S3_USER_DATA:
     DEFAULT_FILE_STORAGE = 'file_store.utils.S3MediaStorage'
-    MEDIA_URL = 'https://{}.s3.amazonaws.com/'.format(MEDIA_BUCKET)
+    MEDIA_URL = f'https://{MEDIA_BUCKET}.s3.amazonaws.com/'
 
 COGNITO_IDENTITY_POOL_ID = get_setting('COGNITO_IDENTITY_POOL_ID')
 

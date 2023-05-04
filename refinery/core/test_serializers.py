@@ -110,7 +110,7 @@ class DataSetSerializerTests(TestCase):
     def test_serializer_returns_creation_date(self):
         serializer = DataSetSerializer(self.data_set)
         isoformat = datetime.isoformat(self.data_set.creation_date)
-        drf_isoformat_creation_date = isoformat[:-6] + 'Z'
+        drf_isoformat_creation_date = f'{isoformat[:-6]}Z'
         self.assertEqual(serializer.data.get('creation_date'),
                          drf_isoformat_creation_date)
 
@@ -151,14 +151,14 @@ class InvitationSerializerTests(TestCase):
     def test_serializer_returns_created_field(self):
         serializer = InvitationSerializer(self.invite)
         isoformat = datetime.isoformat(self.invite.created)
-        drf_isoformat = isoformat[:-6] + 'Z'
+        drf_isoformat = f'{isoformat[:-6]}Z'
         self.assertEqual(drf_isoformat,
                          serializer.data.get('created'))
 
     def test_serializer_returns_expires_field(self):
         serializer = InvitationSerializer(self.invite)
         isoformat = datetime.isoformat(self.invite.expires)
-        drf_isoformat = isoformat[:-6] + 'Z'
+        drf_isoformat = f'{isoformat[:-6]}Z'
         self.assertEqual(drf_isoformat,
                          serializer.data.get('expires'))
 

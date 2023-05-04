@@ -77,7 +77,7 @@ class Parameter(models.Model):
     default_value = models.TextField(max_length=100)
 
     def __str__(self):
-        return "{}: {} - {}".format(self.value_type, self.name, self.uuid)
+        return f"{self.value_type}: {self.name} - {self.uuid}"
 
     def get_galaxy_workflow_step(self):
         try:
@@ -142,7 +142,7 @@ class FileRelationship(models.Model):
     input_files = models.ManyToManyField("InputFile")
 
     def __str__(self):
-        return "{}: {} - {}".format(self.value_type, self.name, self.uuid)
+        return f"{self.value_type}: {self.name} - {self.uuid}"
 
 
 class InputFile(models.Model):
@@ -156,9 +156,7 @@ class InputFile(models.Model):
     allowed_filetypes = models.ManyToManyField(FileType)
 
     def __str__(self):
-        return "{}: {} {}".format(
-            self.name, [f.name for f in self.allowed_filetypes.all()],
-            self.uuid)
+        return f"{self.name}: {[f.name for f in self.allowed_filetypes.all()]} {self.uuid}"
 
 
 class ToolDefinition(models.Model):
@@ -191,7 +189,7 @@ class ToolDefinition(models.Model):
     workflow = models.ForeignKey(Workflow, null=True)
 
     def __str__(self):
-        return "{}: {} {}".format(self.tool_type, self.name, self.uuid)
+        return f"{self.tool_type}: {self.name} {self.uuid}"
 
     def get_annotation(self):
         """
@@ -210,19 +208,16 @@ class ToolDefinition(models.Model):
         information
         :raises: KeyError, NotImplementedError
         """
-        if self.tool_type == ToolDefinition.VISUALIZATION:
-            try:
-                return self.get_annotation()[self.EXTRA_DIRECTORIES]
-            except KeyError:
-                logger.error("ToolDefinition: %s's annotation is missing its "
-                             "`%s` key.", self.name, self.EXTRA_DIRECTORIES)
-                raise
-        else:
+        if self.tool_type != ToolDefinition.VISUALIZATION:
             raise NotImplementedError(
-                "Workflow-based tools don't utilize `{}`".format(
-                    self.EXTRA_DIRECTORIES
-                )
+                f"Workflow-based tools don't utilize `{self.EXTRA_DIRECTORIES}`"
             )
+        try:
+            return self.get_annotation()[self.EXTRA_DIRECTORIES]
+        except KeyError:
+            logger.error("ToolDefinition: %s's annotation is missing its "
+                         "`%s` key.", self.name, self.EXTRA_DIRECTORIES)
+            raise
 
     def get_parameters(self):
         return self.parameters.all()
@@ -240,11 +235,7 @@ def delete_associated_objects(sender, instance, *args, **kwargs):
     for parameter in parameters:
         parameter.delete()
 
-    # Set any associated Workflows to be inactive
-    # this will remove the Workflow entries from the UI, but won't delete
-    # any Analyses that were run from said Workflows
-    workflow = instance.workflow
-    if workflow:
+    if workflow := instance.workflow:
         workflow.is_active = False
         workflow.save()
 
@@ -302,23 +293,17 @@ class Tool(OwnableResource):
         )
 
     def __str__(self):
-        return "Tool: {}".format(self.get_tool_name())
+        return f"Tool: {self.get_tool_name()}"
 
     @property
     def django_docker_client(self):
         try:
             abs_url = build_absolute_url(self.container_input_json_url)
         except ValueError:
-            logger.error('{} is not a relative url'.format(
-                    str(self.container_input_json_url)
-                )
-            )
+            logger.error(f'{str(self.container_input_json_url)} is not a relative url')
             return None
         except RuntimeError:
-            logger.error('Could not build URL for {}'.format(
-                    str(self.container_input_json_url)
-                )
-            )
+            logger.error(f'Could not build URL for {str(self.container_input_json_url)}')
             return None
         return DockerClientRunWrapper(
             DockerClientSpec(input_json_url=abs_url),
@@ -345,17 +330,17 @@ class Tool(OwnableResource):
         return self.creation_date.strftime('%m/%d/%Y %H:%M:%S')
 
     def _create_detail_url(self, detail_name=None):
-        detail_url = urljoin(self.TOOL_API_ROOT, "{}/".format(self.uuid))
+        detail_url = urljoin(self.TOOL_API_ROOT, f"{self.uuid}/")
         if detail_name is None:
             return detail_url
-        return urljoin(detail_url, "{}/".format(detail_name))
+        return urljoin(detail_url, f"{detail_name}/")
 
     def _get_owner_info_as_dict(self):
         user = self.get_owner()
         return {
             "username": user.username,
-            "full_name": "{} {}".format(user.first_name, user.last_name),
-            "user_profile_uuid": str(user.profile.uuid)
+            "full_name": f"{user.first_name} {user.last_name}",
+            "user_profile_uuid": str(user.profile.uuid),
         }
 
     def get_input_file_uuid_list(self):
@@ -372,9 +357,7 @@ class Tool(OwnableResource):
         )
 
     def get_input_node_uuids(self):
-        node_uuids = re.findall(constants.UUID_RE,
-                                self.get_file_relationships())
-        return node_uuids
+        return re.findall(constants.UUID_RE, self.get_file_relationships())
 
     def _get_input_nodes(self):
         """Return a list of Node objects corresponding to the Node UUIDs we
@@ -407,11 +390,11 @@ class Tool(OwnableResource):
         :return: analysis_config dict
         """
         return {
-            "name": "{}".format(self),
+            "name": f"{self}",
             "study_uuid": self.dataset.get_latest_study().uuid,
             "tool_uuid": self.uuid,
             "user_id": self.get_owner().id,
-            "workflow_uuid": self.tool_definition.workflow.uuid
+            "workflow_uuid": self.tool_definition.workflow.uuid,
         }
 
     def launch(self):
@@ -444,11 +427,9 @@ class Tool(OwnableResource):
             tool_launch_config[self.FILE_UUID_LIST].append(node.file_item.uuid)
             file_url = get_file_url_from_node_uuid(node_uuid,
                                                    require_valid_url=True)
-            tool_launch_config[self.FILE_RELATIONSHIPS_URLS] = (
-                tool_launch_config[self.FILE_RELATIONSHIPS_URLS].replace(
-                    node_uuid, "'{}'".format(file_url)
-                )
-            )
+            tool_launch_config[self.FILE_RELATIONSHIPS_URLS] = tool_launch_config[
+                self.FILE_RELATIONSHIPS_URLS
+            ].replace(node_uuid, f"'{file_url}'")
         self.set_tool_launch_config(tool_launch_config)
 
     def is_running(self):
@@ -472,8 +453,7 @@ class Tool(OwnableResource):
 
     def get_relative_container_url(self):
         """Construct & return the relative url of our Tool's container"""
-        return "/{}/{}".format(settings.DJANGO_DOCKER_ENGINE_BASE_URL,
-                               self.container_name)
+        return f"/{settings.DJANGO_DOCKER_ENGINE_BASE_URL}/{self.container_name}"
 
 
 class VisualizationToolError(Exception):
@@ -503,29 +483,24 @@ class VisualizationTool(Tool):
         Visualizations will have access to
         """
         return {
-            self.API_PREFIX: self.get_relative_container_url() + "/",
+            self.API_PREFIX: f"{self.get_relative_container_url()}/",
             self.FILE_RELATIONSHIPS: self.get_file_relationships_urls(),
             ToolDefinition.PARAMETERS: self._get_visualization_parameters(),
             self.INPUT_NODE_INFORMATION: self._get_detailed_nodes_dict(
                 self.get_input_node_uuids(),
-                require_valid_urls=True  # Tool input nodes need valid urls
+                require_valid_urls=True,  # Tool input nodes need valid urls
             ),
-            # TODO: adding all of a DataSet's Node info seems excessive. Would
-            #  be great if we had a VisualizationTool using all of this info
             self.ALL_NODE_INFORMATION: self._get_detailed_nodes_dict(
                 self.dataset.get_node_uuids()
             ),
-            ToolDefinition.EXTRA_DIRECTORIES:
-                self.tool_definition.get_extra_directories()
+            ToolDefinition.EXTRA_DIRECTORIES: self.tool_definition.get_extra_directories(),
         }
 
     def _check_input_node_limit(self):
         if len(self.get_input_node_uuids()) > \
-                constants.REFINERY_SOLR_DOC_LIMIT:
+                    constants.REFINERY_SOLR_DOC_LIMIT:
             raise VisualizationToolError(
-                'Input Node limit of: {} reached'.format(
-                    constants.REFINERY_SOLR_DOC_LIMIT
-                )
+                f'Input Node limit of: {constants.REFINERY_SOLR_DOC_LIMIT} reached'
             )
 
     def create_container_spec(self):
@@ -571,24 +546,21 @@ class VisualizationTool(Tool):
         return node_info
 
     def _get_visualization_parameters(self):
-        tool_parameters = []
-
-        for parameter in self.tool_definition.get_parameters():
-            tool_parameters.append(
-                {
-                    'uuid': str(parameter.uuid),
-                    'description': parameter.description,
-                    'default_value': parameter.cast_param_value_to_proper_type(
-                        parameter.default_value
-                    ),
-                    'name': parameter.name,
-                    'value': parameter.cast_param_value_to_proper_type(
-                        self._get_edited_parameter_value(parameter)
-                    ),
-                    'value_type': parameter.value_type
-                }
-            )
-        return tool_parameters
+        return [
+            {
+                'uuid': str(parameter.uuid),
+                'description': parameter.description,
+                'default_value': parameter.cast_param_value_to_proper_type(
+                    parameter.default_value
+                ),
+                'name': parameter.name,
+                'value': parameter.cast_param_value_to_proper_type(
+                    self._get_edited_parameter_value(parameter)
+                ),
+                'value_type': parameter.value_type,
+            }
+            for parameter in self.tool_definition.get_parameters()
+        ]
 
     def _get_edited_parameter_value(self, parameter_instance):
         ''' Return the `default_value` of a Parameter instance here unless a
@@ -712,9 +684,9 @@ class WorkflowTool(Tool):
         flattened_nesting = self._flatten_file_relationships_nesting()
         for index, file_relationship in enumerate(flattened_nesting):
             if isinstance(file_relationship, list):
-                nesting_string += "{}:".format(WorkflowTool.LIST)
+                nesting_string += f"{WorkflowTool.LIST}:"
             if isinstance(file_relationship, tuple):
-                nesting_string += "{}:".format(WorkflowTool.PAIRED)
+                nesting_string += f"{WorkflowTool.PAIRED}:"
         return nesting_string[:-1]
 
     @property
@@ -732,14 +704,14 @@ class WorkflowTool(Tool):
         with each other
         :return: <CollectionDescription>
         """
-        if not len(galaxy_element_data) == 1:
+        if len(galaxy_element_data) != 1:
             for index, galaxy_element in enumerate(galaxy_element_data):
                 if type(galaxy_element) == CollectionDescription:
                     for prev_galaxy_element in galaxy_element_data[:index]:
-                        if (type(prev_galaxy_element) ==
-                                HistoryDatasetElement or
-                                type(prev_galaxy_element) ==
-                                CollectionElement):
+                        if type(prev_galaxy_element) in [
+                            HistoryDatasetElement,
+                            CollectionElement,
+                        ]:
                             galaxy_element.add(prev_galaxy_element)
                             galaxy_element_data.remove(prev_galaxy_element)
                             return self._associate_collection_elements(
@@ -762,14 +734,12 @@ class WorkflowTool(Tool):
                                 galaxy_element_data
                             )
         else:
-            assert len(galaxy_element_data) == 1, \
-                "Only one element should be present in: {}".format(
-                    galaxy_element_data
-                )
-            assert type(galaxy_element_data[0]) == CollectionDescription, \
-                "Element: {} should be of type: CollectionDescription".format(
-                    galaxy_element_data[0]
-                )
+            assert (
+                len(galaxy_element_data) == 1
+            ), f"Only one element should be present in: {galaxy_element_data}"
+            assert (
+                type(galaxy_element_data[0]) == CollectionDescription
+            ), f"Element: {galaxy_element_data[0]} should be of type: CollectionDescription"
             return galaxy_element_data[0]
 
     def _create_analysis(self):
@@ -869,9 +839,8 @@ class WorkflowTool(Tool):
                     else:
                         element_name = self.FORWARD
                         reverse_read = True
-                else:
-                    if not workflow_is_collection_based:
-                        analysis_group += 1
+                elif not workflow_is_collection_based:
+                    analysis_group += 1
 
                 galaxy_element_list.append(
                     HistoryDatasetElement(
@@ -884,9 +853,8 @@ class WorkflowTool(Tool):
                     analysis_group += 1
 
                 list_collection_element = CollectionElement(
-                    name="{} collection {}".format(self.LIST,
-                                                   uuid_lib.uuid4()),
-                    type=self.LIST
+                    name=f"{self.LIST} collection {uuid_lib.uuid4()}",
+                    type=self.LIST,
                 )
                 list_collection_element.elements = []
                 galaxy_element_list.append(list_collection_element)
@@ -895,16 +863,15 @@ class WorkflowTool(Tool):
                 analysis_group += 1
 
                 paired_collection_element = CollectionElement(
-                    name="{} collection {}".format(self.PAIRED,
-                                                   uuid_lib.uuid4()),
-                    type=self.PAIRED
+                    name=f"{self.PAIRED} collection {uuid_lib.uuid4()}",
+                    type=self.PAIRED,
                 )
                 paired_collection_element.elements = []
                 galaxy_element_list.append(paired_collection_element)
 
         collection_description = CollectionDescription(
-            name="{} - {}".format(self.name, self.galaxy_collection_type),
-            type=self.galaxy_collection_type
+            name=f"{self.name} - {self.galaxy_collection_type}",
+            type=self.galaxy_collection_type,
         )
         collection_description.elements = []
         galaxy_element_list.append(collection_description)
@@ -929,13 +896,13 @@ class WorkflowTool(Tool):
     @handle_bioblend_exceptions
     def create_galaxy_history(self):
         return self.galaxy_connection.histories.create_history(
-            name="History for: {}".format(self)
+            name=f"History for: {self}"
         )
 
     @handle_bioblend_exceptions
     def create_galaxy_library(self):
         galaxy_library_dict = self.galaxy_connection.libraries.create_library(
-            name="Library for: {}".format(self)
+            name=f"Library for: {self}"
         )
         self.analysis.library_id = galaxy_library_dict["id"]
         self.analysis.save()
@@ -970,14 +937,12 @@ class WorkflowTool(Tool):
                 galaxy_parameter = GalaxyParameter.objects.get(
                     uuid=galaxy_parameter_uuid
                 )
-            except(GalaxyParameter.DoesNotExist,
+            except (GalaxyParameter.DoesNotExist,
                    GalaxyParameter.MultipleObjectsReturned) as e:
                 logger.error('Error locating the GalaxyParameter for uuid: %s '
                              ': %s', str(galaxy_parameter_uuid), e)
                 raise type(e)(
-                    'Error locating the GalaxyParameter for uuid: {}'.format(
-                        str(galaxy_parameter_uuid)
-                    )
+                    f'Error locating the GalaxyParameter for uuid: {str(galaxy_parameter_uuid)}'
                 )
             else:
                 workflow_step = galaxy_parameter.galaxy_workflow_step
@@ -1047,8 +1012,7 @@ class WorkflowTool(Tool):
         assert len(list(set(analysis_groups))) == 1, (
             "`analysis_groups` should only contain a single element."
         )
-        analysis_group = analysis_groups[0]
-        return analysis_group
+        return analysis_groups[0]
 
     def _get_analysis_node_connection_input_filename(self):
         return (
@@ -1065,10 +1029,7 @@ class WorkflowTool(Tool):
 
     @staticmethod
     def _get_galaxy_dataset_filename(galaxy_dataset_dict):
-        return "{}.{}".format(
-            galaxy_dataset_dict["name"],
-            galaxy_dataset_dict["file_ext"]
-        )
+        return f'{galaxy_dataset_dict["name"]}.{galaxy_dataset_dict["file_ext"]}'
 
     def _get_galaxy_file_mapping_list(self):
         return self.get_galaxy_dict()[self.GALAXY_TO_REFINERY_MAPPING_LIST]
@@ -1091,13 +1052,12 @@ class WorkflowTool(Tool):
                 self.galaxy_workflow_history_id
             )
         )
-        retained_datasets = [
+        return [
             self._update_galaxy_dataset_name(galaxy_dataset)
             for galaxy_dataset in galaxy_dataset_list
-            if not galaxy_dataset["purged"] and
-            self._get_workflow_step(galaxy_dataset) > 0
+            if not galaxy_dataset["purged"]
+            and self._get_workflow_step(galaxy_dataset) > 0
         ]
-        return retained_datasets
 
     def _get_exposed_galaxy_datasets(self, exposed_dataset_list=None):
         """
@@ -1284,14 +1244,14 @@ class WorkflowTool(Tool):
         return self.tool_definition.workflow.internal_id
 
     def _get_workflow_step(self, galaxy_dataset_dict):
-        for step in self._get_galaxy_workflow_invocation()["steps"]:
-            if step["job_id"] == galaxy_dataset_dict[self.CREATING_JOB]:
-                return step["order_index"]
-
-        # If we reach this point and have no workflow_steps, this means that
-        #  the galaxy dataset in question corresponds to an `upload` or
-        # `input` step i.e. `0`
-        return self.INPUT_STEP_NUMBER
+        return next(
+            (
+                step["order_index"]
+                for step in self._get_galaxy_workflow_invocation()["steps"]
+                if step["job_id"] == galaxy_dataset_dict[self.CREATING_JOB]
+            ),
+            self.INPUT_STEP_NUMBER,
+        )
 
     def _get_creating_job_output_name(self, galaxy_dataset_dict,
                                       creating_job=None):
@@ -1314,12 +1274,9 @@ class WorkflowTool(Tool):
             if creating_job_outputs[output_name]["uuid"] ==
             galaxy_dataset_dict["uuid"]
         ]
-        assert len(workflow_step_output_name) == 1, (
-            "There should be one creating job output name for a "
-            "Galaxy dataset. There were: {}".format(
-                len(workflow_step_output_name)
-            )
-        )
+        assert (
+            len(workflow_step_output_name) == 1
+        ), f"There should be one creating job output name for a Galaxy dataset. There were: {len(workflow_step_output_name)}"
         return workflow_step_output_name[0]
 
     def _has_dataset_collection_input(self):
@@ -1350,9 +1307,9 @@ class WorkflowTool(Tool):
         """Invoke a WorflowTool's Galaxy Workflow"""
         return self.galaxy_connection.workflows.invoke_workflow(
             self.get_workflow_internal_id(),
-            history_name="Workflow Run for {} {}".format(self.name, self.uuid),
+            history_name=f"Workflow Run for {self.name} {self.uuid}",
             inputs=self._create_workflow_inputs_dict(),
-            params=self._create_workflow_parameters_dict()
+            params=self._create_workflow_parameters_dict(),
         )
 
     def launch(self):
@@ -1474,13 +1431,10 @@ class WorkflowTool(Tool):
         workflow_step_number = str(
             self._get_workflow_step(galaxy_dataset_dict)
         )
-        post_job_actions = workflow_steps[workflow_step_number].get(
+        if post_job_actions := workflow_steps[workflow_step_number].get(
             "post_job_actions"
-        )
-        if post_job_actions:
-            rename_dataset_key = (
-                "RenameDatasetAction{}".format(galaxy_dataset_dict["name"])
-            )
+        ):
+            rename_dataset_key = f'RenameDatasetAction{galaxy_dataset_dict["name"]}'
             if rename_dataset_key in post_job_actions.keys():
                 galaxy_dataset_dict["name"] = (
                     post_job_actions[

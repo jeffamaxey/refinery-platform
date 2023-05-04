@@ -16,18 +16,23 @@ from tool_manager.models import ToolDefinition
 
 def create_analysis(project, dataset, workflow, user_instance):
     analysis_uuid = str(uuid_lib.uuid4())
-    analysis = AnalysisFactory(uuid=analysis_uuid,
-                               name='Test Analysis - {}'.format(analysis_uuid),
-                               project=project, data_set=dataset,
-                               workflow=workflow)
+    analysis = AnalysisFactory(
+        uuid=analysis_uuid,
+        name=f'Test Analysis - {analysis_uuid}',
+        project=project,
+        data_set=dataset,
+        workflow=workflow,
+    )
     input_node = dataset.get_nodes().first()
-    AnalysisNodeConnectionFactory(analysis=analysis, node=input_node, step=0,
-                                  name='Connection to {}'.format(input_node),
-                                  filename='Input filename',
-                                  direction=INPUT_CONNECTION,
-                                  is_refinery_file=bool(
-                                      input_node.file_item.datafile
-                                  ))
+    AnalysisNodeConnectionFactory(
+        analysis=analysis,
+        node=input_node,
+        step=0,
+        name=f'Connection to {input_node}',
+        filename='Input filename',
+        direction=INPUT_CONNECTION,
+        is_refinery_file=bool(input_node.file_item.datafile),
+    )
     # create Analysis Output
     file_store_item_uuid = str(uuid_lib.uuid4())
     file_store_item = FileStoreItemFactory(
@@ -39,12 +44,15 @@ def create_analysis(project, dataset, workflow, user_instance):
                               assay=dataset.get_latest_assay(),
                               file_item=file_store_item,
                               type=Node.DERIVED_DATA_FILE)
-    AnalysisNodeConnectionFactory(direction=OUTPUT_CONNECTION,
-                                  node=output_node,
-                                  name='Connection to {}'.format(output_node),
-                                  analysis=analysis, step=1,
-                                  filename='Output filename',
-                                  is_refinery_file=True)
+    AnalysisNodeConnectionFactory(
+        direction=OUTPUT_CONNECTION,
+        node=output_node,
+        name=f'Connection to {output_node}',
+        analysis=analysis,
+        step=1,
+        filename='Output filename',
+        is_refinery_file=True,
+    )
     AnalysisResultFactory(analysis=analysis,
                           file_store_uuid=file_store_item_uuid)
     AnalysisStatusFactory(analysis=analysis)
@@ -74,9 +82,12 @@ def create_dataset_with_necessary_models(create_nodes=True,
                                          slug=None, latest_version=1):
     """Create Dataset with InvestigationLink, Investigation, Study and Assay"""
     dataset_uuid = str(uuid_lib.uuid4())
-    dataset = DataSetFactory(uuid=dataset_uuid, slug=slug,
-                             title="Test DataSet - {}".format(dataset_uuid),
-                             name="Test DataSet - {}".format(dataset_uuid))
+    dataset = DataSetFactory(
+        uuid=dataset_uuid,
+        slug=slug,
+        title=f"Test DataSet - {dataset_uuid}",
+        name=f"Test DataSet - {dataset_uuid}",
+    )
     latest_study = _create_dataset_objects(dataset, is_isatab_based,
                                            latest_version)
     assay = AssayFactory(uuid=str(uuid_lib.uuid4()), study=latest_study)
@@ -85,16 +96,21 @@ def create_dataset_with_necessary_models(create_nodes=True,
         for i in range(2):
             file_store_item = FileStoreItemFactory(
                 uuid=str(uuid_lib.uuid4()),
-                source='http://www.example.com/test{}.txt'.format(i)
+                source=f'http://www.example.com/test{i}.txt',
             )
             node = NodeFactory(study=latest_study, assay=assay,
                                file_item=file_store_item,
                                type=Node.RAW_DATA_FILE)
             attribute = AttributeFactory(node=node, type='Characteristics',
                                          subtype='organism', value='Human')
-            AnnotatedNodeFactory(study=latest_study, assay=assay, node=node,
-                                 node_name='AnnotatedNode-{}'.format(i),
-                                 node_type=node.type, attribute=attribute)
+            AnnotatedNodeFactory(
+                study=latest_study,
+                assay=assay,
+                node=node,
+                node_name=f'AnnotatedNode-{i}',
+                node_type=node.type,
+                attribute=attribute,
+            )
     if user is not None:
         dataset.set_owner(user)
         dataset.save()
@@ -107,9 +123,7 @@ def _create_dataset_objects(dataset, is_isatab_based, latest_version):
         file_store_item_uuid = str(uuid_lib.uuid4())
         file_store_item = FileStoreItemFactory(
             uuid=file_store_item_uuid,
-            source="http://www.example.com/test.{}".format(
-                "zip" if is_isatab_based else "csv"
-            )
+            source=f'http://www.example.com/test.{"zip" if is_isatab_based else "csv"}',
         )
         investigation_uuid = str(uuid_lib.uuid4())
         investigation = InvestigationFactory(
@@ -118,18 +132,18 @@ def _create_dataset_objects(dataset, is_isatab_based, latest_version):
             pre_isarchive_file=(
                 None if is_isatab_based else file_store_item.uuid
             ),
-            identifier="{}: Investigation identifier".format(dataset),
-            description="{}: Investigation description".format(dataset),
-            title="{}: Investigation title".format(dataset)
+            identifier=f"{dataset}: Investigation identifier",
+            description=f"{dataset}: Investigation description",
+            title=f"{dataset}: Investigation title",
         )
 
         study_uuid = str(uuid_lib.uuid4())
         study = StudyFactory(
             uuid=study_uuid,
             investigation=investigation,
-            identifier="{}: Study identifier".format(dataset),
-            description="{}: Study description".format(dataset),
-            title="{}: Study title".format(dataset)
+            identifier=f"{dataset}: Study identifier",
+            description=f"{dataset}: Study description",
+            title=f"{dataset}: Study title",
         )
         InvestigationLinkFactory(
             data_set=dataset,
@@ -156,7 +170,7 @@ def create_tool_with_necessary_models(tool_type, user=None):
         ToolDefinition.VISUALIZATION: VisualizationToolFactory
     }
     tool_factory = tool_type_to_factory_mapping[tool_type]
-    name = "Test {} Tool: {}".format(tool_type, uuid_lib.uuid4())
+    name = f"Test {tool_type} Tool: {uuid_lib.uuid4()}"
 
     tool = tool_factory(
         tool_definition=ToolDefinitionFactory(
@@ -190,9 +204,13 @@ def create_mock_hg_19_data_set(user=None):
                                        file_item=None, type=Node.SOURCE,
                                        name=name)
 
-        sample_name_node = NodeFactory(study=latest_study, assay=assay,
-                                       file_item=None, type=Node.SAMPLE,
-                                       name=name + '.fastq.gz')
+        sample_name_node = NodeFactory(
+            study=latest_study,
+            assay=assay,
+            file_item=None,
+            type=Node.SAMPLE,
+            name=f'{name}.fastq.gz',
+        )
 
         attribute_organism = AttributeFactory(node=sample_name_node,
                                               type='Characteristics',
@@ -203,13 +221,20 @@ def create_mock_hg_19_data_set(user=None):
                                             type='Characteristics',
                                             subtype='sample id', value=name)
 
-        assay_name_node = NodeFactory(study=latest_study, assay=assay,
-                                      file_item=None, type=Node.ASSAY,
-                                      name=name + '.fastq.gz')
-        node = NodeFactory(study=latest_study, assay=assay,
-                           file_item=FileStoreItemFactory(
-                               source="/{}.fastq.gz".format(name)
-                           ), type=Node.RAW_DATA_FILE, name=name + '.fastq.gz')
+        assay_name_node = NodeFactory(
+            study=latest_study,
+            assay=assay,
+            file_item=None,
+            type=Node.ASSAY,
+            name=f'{name}.fastq.gz',
+        )
+        node = NodeFactory(
+            study=latest_study,
+            assay=assay,
+            file_item=FileStoreItemFactory(source=f"/{name}.fastq.gz"),
+            type=Node.RAW_DATA_FILE,
+            name=f'{name}.fastq.gz',
+        )
 
         source_name_node.add_child(sample_name_node)
         sample_name_node.add_child(assay_name_node)
@@ -259,39 +284,58 @@ def create_mock_isatab_9909_data_set(user=None):
     ]
     all_attributes = []
     for name in node_names:
-        loop_attributes = []
         source_name_node = NodeFactory(study=latest_study, assay=assay,
                                        file_item=None, type=Node.SOURCE,
                                        name=name['source'])
-        loop_attributes.append(AttributeFactory(
-            node=source_name_node, type="Characteristics",
-            subtype='organism part', value='Muscle', value_source='FMA',
-            value_accession='http://test.site/fma#Muscle'
-        ))
-        loop_attributes.append(AttributeFactory(
-            node=source_name_node, type="Characteristics", subtype='organism',
-            value='Homo sapiens', value_source='NCBITAXON',
-            value_accession='http://test.site/obo/NCBITaxon_9606'
-        ))
+        loop_attributes = [
+            AttributeFactory(
+                node=source_name_node,
+                type="Characteristics",
+                subtype='organism part',
+                value='Muscle',
+                value_source='FMA',
+                value_accession='http://test.site/fma#Muscle',
+            ),
+            AttributeFactory(
+                node=source_name_node,
+                type="Characteristics",
+                subtype='organism',
+                value='Homo sapiens',
+                value_source='NCBITAXON',
+                value_accession='http://test.site/obo/NCBITaxon_9606',
+            ),
+        ]
         sample_name_node = NodeFactory(study=latest_study, assay=assay,
                                        file_item=None, type=Node.SAMPLE,
                                        name=name['sample'])
-        loop_attributes.append(AttributeFactory(node=sample_name_node,
-                                                type="Characteristics",
-                                                subtype='cell type',
-                                                value='Muscle stem cell'))
-        loop_attributes.append(AttributeFactory(node=sample_name_node,
-                                                type="Characteristics",
-                                                subtype='notes',
-                                                value=name['notes']))
-        loop_attributes.append(AttributeFactory(node=sample_name_node,
-                                                type="Characteristics",
-                                                subtype='positive markers',
-                                                value=name['markers']))
-        loop_attributes.append(AttributeFactory(node=sample_name_node,
-                                                type="Factor Value",
-                                                subtype='culture medium',
-                                                value=name['culture']))
+        loop_attributes.extend(
+            (
+                AttributeFactory(
+                    node=sample_name_node,
+                    type="Characteristics",
+                    subtype='cell type',
+                    value='Muscle stem cell',
+                ),
+                AttributeFactory(
+                    node=sample_name_node,
+                    type="Characteristics",
+                    subtype='notes',
+                    value=name['notes'],
+                ),
+                AttributeFactory(
+                    node=sample_name_node,
+                    type="Characteristics",
+                    subtype='positive markers',
+                    value=name['markers'],
+                ),
+                AttributeFactory(
+                    node=sample_name_node,
+                    type="Factor Value",
+                    subtype='culture medium',
+                    value=name['culture'],
+                ),
+            )
+        )
         extract_name_node = NodeFactory(study=latest_study, assay=assay,
                                         file_item=None, type=Node.EXTRACT,
                                         name=name['sample'])
@@ -312,18 +356,16 @@ def create_mock_isatab_9909_data_set(user=None):
                                              name=name['sample'])
 
         array_data_node = NodeFactory(
-            study=latest_study, assay=assay, file_item=FileStoreItemFactory(
-                source='http://test.site/sites/bioassay_files/{}'.format(
-                    name['scan']
-                )
+            study=latest_study,
+            assay=assay,
+            file_item=FileStoreItemFactory(
+                source=f"http://test.site/sites/bioassay_files/{name['scan']}"
             ),
             type=Node.ARRAY_DATA_FILE,
-            name='http://test.site/sites/bioassay_files/{}'.format(
-                name['scan']
-            )
+            name=f"http://test.site/sites/bioassay_files/{name['scan']}",
         )
 
-        for ind in range(4):
+        for _ in range(4):
             scan_node = NodeFactory(study=latest_study, assay=assay,
                                     file_item=None, type=Node.SCAN,
                                     name=name['scan'])
@@ -397,10 +439,13 @@ def create_mock_isatab_9909_data_set(user=None):
 
     node_names = ['pluriconsensus', 'geo']
     for name in node_names:
-        path_print_node = NodeFactory(study=latest_study, assay=assay,
-                                      file_item=None,
-                                      type=Node.DATA_TRANSFORMATION,
-                                      name='pathprint_{}'.format(name))
+        path_print_node = NodeFactory(
+            study=latest_study,
+            assay=assay,
+            file_item=None,
+            type=Node.DATA_TRANSFORMATION,
+            name=f'pathprint_{name}',
+        )
         record_attribute = AttributeFactory(node=path_print_node,
                                             type='Comment',
                                             subtype='Data Record Accession',
@@ -410,11 +455,13 @@ def create_mock_isatab_9909_data_set(user=None):
                                                 subtype='Data Repository',
                                                 value='')
         final_node = NodeFactory(
-            study=latest_study, assay=assay, file_item=FileStoreItemFactory(
-                source='http://test.site/sites/9909.GPL96_{}.pdf'.format(name)
+            study=latest_study,
+            assay=assay,
+            file_item=FileStoreItemFactory(
+                source=f'http://test.site/sites/9909.GPL96_{name}.pdf'
             ),
             type=Node.DERIVED_ARRAY_DATA_MATRIX_FILE,
-            name='http://test.site/sites/9909.GPL96_{}.pdf'.format(name)
+            name=f'http://test.site/sites/9909.GPL96_{name}.pdf',
         )
         for attribute in all_attributes:
             _create_annotated_node(assay, attribute, final_node, latest_study)

@@ -108,12 +108,10 @@ def invalidate_cached_object(instance, is_test=False):
                                for user in User.objects.all()])
 
         except Exception as e:
-            logger.debug("Could not delete %s from cache" %
-                         instance.__class__.__name__, e)
+            logger.debug(f"Could not delete {instance.__class__.__name__} from cache", e)
     else:
         from mockcache import Client
-        mc = Client()
-        return mc
+        return Client()
 
 
 def build_absolute_url(string):
@@ -121,7 +119,7 @@ def build_absolute_url(string):
     domain and REFINERY_URL_SCHEME Django setting
     """
     if not string:
-        raise ValueError('Only relative urls allowed, not: {}'.format(string))
+        raise ValueError(f'Only relative urls allowed, not: {string}')
     if is_absolute_url(string):
         return string
     try:
@@ -131,9 +129,7 @@ def build_absolute_url(string):
                      "SITE_ID is invalid")
         raise RuntimeError(e)
 
-    return "{}://{}{}".format(
-        settings.REFINERY_URL_SCHEME, current_site.domain, string
-    )
+    return f"{settings.REFINERY_URL_SCHEME}://{current_site.domain}{string}"
 
 
 def is_absolute_url(string):
@@ -204,9 +200,7 @@ def get_non_manager_groups_for_user(user):
 # False, accept_global_perms will be ignored, which means that only object
 # permissions will be checked.
 def accept_global_perms(resource_type):
-    if resource_type == 'dataset':
-        return False
-    return True
+    return resource_type != 'dataset'
 
 
 def verify_recaptcha(view_function):

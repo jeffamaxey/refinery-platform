@@ -770,7 +770,7 @@ def forwards(apps, schema_editor):
               }
             }]
 
-    data_as_json = json.dumps([ob for ob in data])
+    data_as_json = json.dumps(list(data))
     objects = serializers.deserialize('json', data_as_json, ignorenonexistent=True)
     for obj in objects:
         obj.save()

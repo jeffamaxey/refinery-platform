@@ -51,8 +51,7 @@ class Command(BaseCommand):
         ).count()
 
         if instance_count > 0:
-            aready_exists_message = "Instance with URL '{}' already " \
-                                 "exists".format(base_url)
+            aready_exists_message = f"Instance with URL '{base_url}' already exists"
             self.stdout.write(aready_exists_message)
             logger.info(aready_exists_message)
             return
@@ -63,16 +62,10 @@ class Command(BaseCommand):
                                            api_url=options['api_url'],
                                            description=options['description'])
         if instance is not None:
-            creation_message = "Instance '{} -- {}' created".format(
-                base_url,
-                api_key
-            )
+            creation_message = f"Instance '{base_url} -- {api_key}' created"
             self.stdout.write(creation_message)
             logger.info(creation_message)
         else:
-            error_message = "Unable to create instance '{} -- {}'".format(
-                base_url,
-                api_key
-            )
+            error_message = f"Unable to create instance '{base_url} -- {api_key}'"
             self.stdout.write(error_message)
             logger.error(error_message)

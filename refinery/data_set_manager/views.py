@@ -80,9 +80,7 @@ class DataSetImportView(View):
                 'data_set_title': data_set_title
             }
         )
-        response = render_to_response(self.template_name,
-                                      context_instance=context)
-        return response
+        return render_to_response(self.template_name, context_instance=context)
 
 
 class ImportISATabView(View):
@@ -112,15 +110,15 @@ class TakeOwnershipOfPublicDatasetView(View):
             request_body = request.body
         except Exception as e:
             err_msg = "Request body is no valid JSON"
-            logger.error("%s: %s" % (err_msg, e))
-            return HttpResponseBadRequest("%s." % err_msg)
+            logger.error(f"{err_msg}: {e}")
+            return HttpResponseBadRequest(f"{err_msg}.")
 
         try:
             body = json.loads(request_body.decode())
         except Exception as e:
             err_msg = "Request body is no valid JSON"
-            logger.error("%s: %s" % (err_msg, e))
-            return HttpResponseBadRequest("%s." % err_msg)
+            logger.error(f"{err_msg}: {e}")
+            return HttpResponseBadRequest(f"{err_msg}.")
 
         if "data_set_uuid" in body:
             data_set_uuid = body["data_set_uuid"]
@@ -134,54 +132,42 @@ class TakeOwnershipOfPublicDatasetView(View):
         except (DataSet.DoesNotExist, DataSet.MultipleObjectsReturned,
                 Exception) as exc:
             err_msg = "Something went wrong"
-            logger.error("%s: %s" % (err_msg, exc))
-            return HttpResponseBadRequest("%s." % err_msg)
+            logger.error(f"{err_msg}: {exc}")
+            return HttpResponseBadRequest(f"{err_msg}.")
 
         public_group = ExtendedGroup.objects.public_group()
         if request.user.has_perm('core.read_dataset', data_set) \
-                or 'read_dataset' in get_perms(public_group, data_set):
+                    or 'read_dataset' in get_perms(public_group, data_set):
             investigation = data_set.get_investigation()
             file_url = investigation.get_file_store_item().get_datafile_url()
             try:
                 full_isa_tab_url = build_absolute_url(file_url)
             except ValueError:
-                logger.error('URL {} is not a relative url'.format(
-                        str(file_url)
-                    )
-                )
+                logger.error(f'URL {str(file_url)} is not a relative url')
                 return HttpResponseBadRequest('No file url found for '
                                               'investigation of DataSet')
             except RuntimeError as e:
-                logger.error('Could not build URL for {}'.format(
-                        str(file_url)
-                    )
-                )
-                return HttpResponseBadRequest('Could not build URL for {}'.
-                                              format(str(file_url)))
+                logger.error(f'Could not build URL for {str(file_url)}')
+                return HttpResponseBadRequest(f'Could not build URL for {str(file_url)}')
             relative_isa_tab_url = reverse('process_isa_tab', args=['ajax'])
             try:
                 isa_tab_url = build_absolute_url(relative_isa_tab_url)
             except ValueError:
-                logger.error(
-                    '{} is not relative url'.format(str(relative_isa_tab_url))
-                )
+                logger.error(f'{str(relative_isa_tab_url)} is not relative url')
                 return HttpResponseBadRequest('Could not set isa_tab_url '
                                               ' cookie due to bad redirect')
             except RuntimeError as e:
                 logger.error('No Current Site found')
-                logger.error('Could not build URL for {}'.format(
-                        str(relative_isa_tab_url)
-                    )
-                )
-                return HttpResponseBadRequest('Could not build URL for {}'.
-                                              format(str(file_url)))
+                logger.error(f'Could not build URL for {str(relative_isa_tab_url)}')
+                return HttpResponseBadRequest(f'Could not build URL for {str(file_url)}')
             response = HttpResponseRedirect(isa_tab_url)
             # set cookie
             response.set_cookie('isa_tab_url', full_isa_tab_url)
             return response
 
-        return HttpResponseForbidden("User is not authorized to access"
-                                     "data set {}".format(data_set_uuid))
+        return HttpResponseForbidden(
+            f"User is not authorized to accessdata set {data_set_uuid}"
+        )
 
 
 class ImportISATabFileForm(forms.Form):
@@ -224,7 +210,7 @@ def import_by_url(url):
         # of path
         download_file(url, temp_file_path)
     except RuntimeError as exc:
-        error_msg = "Problem downloading ISA-Tab file from: " + url
+        error_msg = f"Problem downloading ISA-Tab file from: {url}"
         logger.error("%s. %s", error_msg, exc)
         return _error_message(error_msg)
     return _success_message(temp_file_path)
@@ -287,7 +273,7 @@ class ProcessISATabView(View):
             download_file(url, temp_file_path)
         except RuntimeError as exc:
             logger.error("Problem downloading ISA-Tab file. %s", exc)
-            error = "Problem downloading ISA-Tab file from: '{}'".format(url)
+            error = f"Problem downloading ISA-Tab file from: '{url}'"
             context = RequestContext(request, {'form': form, 'error': error})
             response = render_to_response(self.template_name,
                                           context_instance=context)
@@ -301,18 +287,12 @@ class ProcessISATabView(View):
                 temp_file_path
             )
         except ParserException as e:
-            error_message = "{} {}".format(
-                PARSER_ERROR_MESSAGE,
-                e
-            )
+            error_message = f"{PARSER_ERROR_MESSAGE} {e}"
             logger.error(error_message)
             return HttpResponseBadRequest(error_message)
         except Exception as e:
             etype, value, tb = sys.exc_info()
-            error_message = "{} {}".format(
-                PARSER_UNEXPECTED_ERROR_MESSAGE,
-                "".join(traceback.format_exception(etype, value, tb))
-            )
+            error_message = f'{PARSER_UNEXPECTED_ERROR_MESSAGE} {"".join(traceback.format_exception(etype, value, tb))}'
             logger.error(error_message)
             return HttpResponseBadRequest(
                 PARSER_UNEXPECTED_ERROR_MESSAGE +
@@ -326,18 +306,16 @@ class ProcessISATabView(View):
         if dataset_uuid:
             if 'ajax' in kwargs and kwargs['ajax']:
                 return JsonResponse({'new_data_set_uuid': dataset_uuid})
-            else:
-                response = HttpResponseRedirect(
-                    reverse(self.success_view_name, args=(dataset_uuid,)))
-                response.delete_cookie(self.isa_tab_cookie_name)
-                return response
+            response = HttpResponseRedirect(
+                reverse(self.success_view_name, args=(dataset_uuid,)))
         else:
             error = "Problem parsing ISA-Tab file"
             context = RequestContext(request, {'form': form, 'error': error})
             response = render_to_response(self.template_name,
                                           context_instance=context)
-            response.delete_cookie(self.isa_tab_cookie_name)
-            return response
+
+        response.delete_cookie(self.isa_tab_cookie_name)
+        return response
 
     def post(self, request, *args, **kwargs):
         form = ImportISATabFileForm(request.POST, request.FILES)

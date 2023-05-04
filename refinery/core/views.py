@@ -86,11 +86,11 @@ def group_invite(request, token):
         return render_to_response(
             'core/group_invite.html',
             {
-                'site': '{}://{}'.format(settings.REFINERY_URL_SCHEME,
-                                         get_current_site(request)),
-                'message': 'Invalid token. Not found or expired.'
+                'site': f'{settings.REFINERY_URL_SCHEME}://{get_current_site(request)}',
+                'message': 'Invalid token. Not found or expired.',
             },
-            context_instance=RequestContext(request))
+            context_instance=RequestContext(request),
+        )
 
     inv = inv_list[0]
     user = request.user
@@ -101,11 +101,11 @@ def group_invite(request, token):
         return render_to_response(
             'core/group_invite.html',
             {
-                'site': '{}://{}'.format(settings.REFINERY_URL_SCHEME,
-                                         get_current_site(request)),
-                'message': 'Invalid token. Unable to find pairing group'
+                'site': f'{settings.REFINERY_URL_SCHEME}://{get_current_site(request)}',
+                'message': 'Invalid token. Unable to find pairing group',
             },
-            context_instance=RequestContext(request))
+            context_instance=RequestContext(request),
+        )
 
     ext_group.user_set.add(user)
     # If the group is a manager group
@@ -117,14 +117,13 @@ def group_invite(request, token):
     return render_to_response(
         'core/group_invite.html',
         {
-            'site': '{}://{}'.format(settings.REFINERY_URL_SCHEME,
-                                     get_current_site(request)),
-            'message': '%s has been added to the group %s.' %
-                       (user.username, ext_group.name),
+            'site': f'{settings.REFINERY_URL_SCHEME}://{get_current_site(request)}',
+            'message': f'{user.username} has been added to the group {ext_group.name}.',
             'user': user,
-            'ext_group': ext_group
+            'ext_group': ext_group,
         },
-        context_instance=RequestContext(request))
+        context_instance=RequestContext(request),
+    )
 
 
 def custom_error_page(request, template, context_dict):
@@ -189,12 +188,17 @@ def user_profile_edit(request):
 def group(request, query):
     group = get_object_or_404(ExtendedGroup, uuid=query)
     # only group members are allowed to see group pages
-    if not request.user.is_superuser:
-        if group.id not in request.user.groups.values_list('id', flat=True):
-            return HttpResponseForbidden(
-                custom_error_page(request, '403.html',
-                                  {'user': request.user,
-                                   'msg': "view group %s" % group.name}))
+    if (
+        not request.user.is_superuser
+        and group.id not in request.user.groups.values_list('id', flat=True)
+    ):
+        return HttpResponseForbidden(
+            custom_error_page(
+                request,
+                '403.html',
+                {'user': request.user, 'msg': f"view group {group.name}"},
+            )
+        )
     return render_to_response('core/group.html', {'group': group},
                               context_instance=RequestContext(request))
 
@@ -207,18 +211,19 @@ def data_set_slug(request, slug):
 def data_set(request, data_set_uuid, analysis_uuid=None):
     data_set = get_object_or_404(DataSet, uuid=data_set_uuid)
     public_group = ExtendedGroup.objects.public_group()
-    if not request.user.has_perm('core.read_meta_dataset', data_set):
-        if 'read_meta_dataset' not in get_perms(public_group, data_set):
-            if request.user.is_authenticated():
-                return HttpResponseForbidden(
-                    custom_error_page(request, '403.html',
-                                      {user: request.user,
-                                       'msg': "view this data set"}))
-            else:
-                return HttpResponse(
-                    custom_error_page(request, '401.html',
-                                      {'msg': "view this data set"}),
-                    status='401')
+    if not request.user.has_perm(
+        'core.read_meta_dataset', data_set
+    ) and 'read_meta_dataset' not in get_perms(public_group, data_set):
+        if request.user.is_authenticated():
+            return HttpResponseForbidden(
+                custom_error_page(request, '403.html',
+                                  {user: request.user,
+                                   'msg': "view this data set"}))
+        else:
+            return HttpResponse(
+                custom_error_page(request, '401.html',
+                                  {'msg': "view this data set"}),
+                status='401')
     # get studies
     investigation = data_set.get_investigation()
     studies = investigation.study_set.all()
@@ -264,18 +269,19 @@ def workflow_slug(request, slug):
 def workflow(request, uuid):
     workflow = get_object_or_404(Workflow, uuid=uuid)
     public_group = ExtendedGroup.objects.public_group()
-    if not request.user.has_perm('core.read_workflow', workflow):
-        if 'read_workflow' not in get_perms(public_group, workflow):
-            if request.user.is_authenticated():
-                return HttpResponseForbidden(
-                    custom_error_page(request, '403.html',
-                                      {user: request.user,
-                                       'msg': "view this workflow"}))
-            else:
-                return HttpResponse(
-                    custom_error_page(request, '401.html',
-                                      {'msg': "view this workflow"}),
-                    status='401')
+    if not request.user.has_perm(
+        'core.read_workflow', workflow
+    ) and 'read_workflow' not in get_perms(public_group, workflow):
+        if request.user.is_authenticated():
+            return HttpResponseForbidden(
+                custom_error_page(request, '403.html',
+                                  {user: request.user,
+                                   'msg': "view this workflow"}))
+        else:
+            return HttpResponse(
+                custom_error_page(request, '401.html',
+                                  {'msg': "view this workflow"}),
+                status='401')
     # load graph dictionary from Galaxy
     workflow = Workflow.objects.filter(uuid=uuid).get()
     return render_to_response('core/workflow.html', {'workflow': workflow},
@@ -293,7 +299,7 @@ def solr_core_search(request):
     server, it's better to prefetch all dataset uuid and send them back
     altogether rather than having to query from the client side twice.
     """
-    url = settings.REFINERY_SOLR_BASE_URL + "core/select"
+    url = f"{settings.REFINERY_SOLR_BASE_URL}core/select"
 
     headers = {
         'Accept': 'application/json'
@@ -303,13 +309,11 @@ def solr_core_search(request):
     # Generate access list
     if not request.user.is_superuser:
         if request.user.id is None:
-            access = ['g_{}'.format(settings.REFINERY_PUBLIC_GROUP_ID)]
+            access = [f'g_{settings.REFINERY_PUBLIC_GROUP_ID}']
         else:
-            access = ['u_{}'.format(request.user.id)]
-            for group in request.user.groups.all():
-                access.append('g_{}'.format(group.id))
-        params['fq'] = params['fq'] + ' AND access:({})'.format(
-            ' OR '.join(access))
+            access = [f'u_{request.user.id}']
+            access.extend(f'g_{group.id}' for group in request.user.groups.all())
+        params['fq'] = (params['fq'] + f" AND access:({' OR '.join(access)})")
 
     try:
         response = requests.get(url, params=params, headers=headers)
@@ -488,7 +492,7 @@ class EventAPIView(APIView):
             data_set__in=data_sets_for_user
         ).order_by('-date_time')
         if len(user_events) > 50:
-            user_events = user_events[0:50]
+            user_events = user_events[:50]
         serializer = EventSerializer(user_events, many=True,
                                      context={'request': request})
         return Response(serializer.data)
@@ -635,8 +639,7 @@ class DataSetViewSet(viewsets.ViewSet):
 
             if not data_set.is_valid:
                 logger.warning(
-                    "DataSet with UUID: {} is invalid, and most likely is "
-                    "still being created".format(data_set.uuid)
+                    f"DataSet with UUID: {data_set.uuid} is invalid, and most likely is still being created"
                 )
                 continue
             elif check_own or check_public or group:
@@ -657,7 +660,7 @@ class DataSetViewSet(viewsets.ViewSet):
                     if is_public and group_perms:
                         filtered_data_sets.append(data_set)
                 elif check_own and is_owner or check_public and is_public\
-                        or group and group_perms:
+                            or group and group_perms:
                     filtered_data_sets.append(data_set)
             else:
                 filtered_data_sets.append(data_set)
@@ -697,16 +700,16 @@ class DataSetViewSet(viewsets.ViewSet):
         return Response(serialized_data)
 
     def is_user_authorized(self, user, data_set):
-        if (not user.is_authenticated() or
-                not user.has_perm('core.change_dataset', data_set)):
-            return False
-        else:
-            return True
+        return bool(
+            user.is_authenticated()
+            and user.has_perm('core.change_dataset', data_set)
+        )
 
     def destroy(self, request, uuid):
         if not request.user.is_authenticated():
             return HttpResponseForbidden(
-                content="User {} is not authenticated".format(request.user))
+                content=f"User {request.user} is not authenticated"
+            )
 
         try:
             data_set = DataSet.objects.get(uuid=uuid)
@@ -715,8 +718,7 @@ class DataSetViewSet(viewsets.ViewSet):
             return HttpResponseBadRequest(content="Bad Request")
         except DataSet.DoesNotExist as e:
             logger.error(e)
-            return HttpResponseNotFound(content="DataSet with UUID: {} "
-                                                "not found.".format(uuid))
+            return HttpResponseNotFound(content=f"DataSet with UUID: {uuid} not found.")
         except DataSet.MultipleObjectsReturned as e:
             logger.error(e)
             return HttpResponseServerError(
@@ -729,61 +731,61 @@ class DataSetViewSet(viewsets.ViewSet):
             else:
                 return HttpResponseBadRequest(content=data_set_deleted[1])
 
-        return Response('Unauthorized to delete data set with uuid: {'
-                        '}'.format(uuid), status=status.HTTP_401_UNAUTHORIZED)
+        return Response(
+            f'Unauthorized to delete data set with uuid: {uuid}',
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
 
     def partial_update(self, request, uuid, format=None):
         self.data_set = self.get_object(uuid)
         self.current_site = get_current_site(request)
 
-        # check edit permission for user
-        if self.is_user_authorized(request.user, self.data_set):
-            # update data set's owner
-            current_owner = self.data_set.get_owner()
-            if request.data.get('transfer_data_set') and current_owner == \
-                    request.user:
-                new_owner_email = request.data.get('new_owner_email')
-                try:
-                    new_owner = User.objects.get(email=new_owner_email)
-                except Exception:
-                    return Response(uuid, status=status.HTTP_404_NOT_FOUND)
-
-                try:
-                    with transaction.atomic():
-                        self.data_set.transfer_ownership(current_owner,
-                                                         new_owner)
-                        perm_groups = self.update_group_perms(new_owner)
-                except Exception as e:
-                    return Response(
-                        e, status=status.HTTP_412_PRECONDITION_FAILED
-                    )
-
-                self.send_transfer_notification_email(current_owner,
-                                                      new_owner, perm_groups)
-                serializer = DataSetSerializer(self.data_set,
-                                               context={'request': request})
-                return Response(serializer.data,
-                                status=status.HTTP_202_ACCEPTED)
-
-            # update data set's fields
-            serializer = DataSetSerializer(
-                self.data_set,
-                data=request.data,
-                partial=True,
-                context={'request': request}
-            )
-            if serializer.is_valid():
-                serializer.save()
-                return Response(
-                    serializer.data, status=status.HTTP_202_ACCEPTED
-                )
-            return Response(
-                serializer.errors, status=status.HTTP_400_BAD_REQUEST
-            )
-        else:
+        if not self.is_user_authorized(request.user, self.data_set):
             return Response(
                 uuid, status=status.HTTP_401_UNAUTHORIZED
             )
+        # update data set's owner
+        current_owner = self.data_set.get_owner()
+        if request.data.get('transfer_data_set') and current_owner == \
+                    request.user:
+            new_owner_email = request.data.get('new_owner_email')
+            try:
+                new_owner = User.objects.get(email=new_owner_email)
+            except Exception:
+                return Response(uuid, status=status.HTTP_404_NOT_FOUND)
+
+            try:
+                with transaction.atomic():
+                    self.data_set.transfer_ownership(current_owner,
+                                                     new_owner)
+                    perm_groups = self.update_group_perms(new_owner)
+            except Exception as e:
+                return Response(
+                    e, status=status.HTTP_412_PRECONDITION_FAILED
+                )
+
+            self.send_transfer_notification_email(current_owner,
+                                                  new_owner, perm_groups)
+            serializer = DataSetSerializer(self.data_set,
+                                           context={'request': request})
+            return Response(serializer.data,
+                            status=status.HTTP_202_ACCEPTED)
+
+        # update data set's fields
+        serializer = DataSetSerializer(
+            self.data_set,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                serializer.data, status=status.HTTP_202_ACCEPTED
+            )
+        return Response(
+            serializer.errors, status=status.HTTP_400_BAD_REQUEST
+        )
 
     def send_transfer_notification_email(self, old_owner, new_owner,
                                          perm_groups):
@@ -794,13 +796,11 @@ class DataSetViewSet(viewsets.ViewSet):
         :param new_owner: data set's new owner obj
         :param perm_groups: obj with two obj of permission groups
         """
-        subject = "{}: Data Set ownership transfer".format(
-           settings.EMAIL_SUBJECT_PREFIX
-        )
+        subject = f"{settings.EMAIL_SUBJECT_PREFIX}: Data Set ownership transfer"
         old_owner_name = old_owner.get_full_name() or  \
-            old_owner.username
+                old_owner.username
         new_owner_name = new_owner.get_full_name() or  \
-            new_owner.username
+                new_owner.username
 
         temp_loader = loader.get_template(
             'core/owner_transfer_notification.txt'
@@ -829,7 +829,7 @@ class DataSetViewSet(viewsets.ViewSet):
         :param new_owner: data set's new owner obj
         """
         new_owner_group_ids = new_owner.groups.all().\
-            values_list('id', flat=True)
+                values_list('id', flat=True)
         all_groups_with_ds_access = get_groups_with_perms(
             self.data_set, attach_perms=True
         )
@@ -838,10 +838,7 @@ class DataSetViewSet(viewsets.ViewSet):
         for group in all_groups_with_ds_access:
             group_details = {
                 'name': group.extendedgroup.name,
-                'profile': 'http://{}/groups/{}'.format(
-                    self.current_site,
-                    group.extendedgroup.uuid
-                )
+                'profile': f'http://{self.current_site}/groups/{group.extendedgroup.uuid}',
             }
             if group.id in new_owner_group_ids:
                 groups_with_access.append(group_details)
@@ -910,26 +907,26 @@ class AnalysisAPIView(APIView):
     def delete(self, request, uuid):
         if not request.user.is_authenticated():
             return HttpResponseForbidden(
-                content="User {} is not authenticated".format(request.user))
+                content=f"User {request.user} is not authenticated"
+            )
+        try:
+            analysis_deleted = Analysis.objects.get(uuid=uuid).delete()
+        except NameError as e:
+            logger.error(e)
+            return HttpResponseBadRequest(content="Bad Request")
+        except Analysis.DoesNotExist as e:
+            logger.error(e)
+            return HttpResponseNotFound(content=f"Analysis with UUID: {uuid} not found.")
+        except Analysis.MultipleObjectsReturned as e:
+            logger.error(e)
+            return HttpResponseServerError(
+                content="Multiple Analyses returned for this request")
         else:
-            try:
-                analysis_deleted = Analysis.objects.get(uuid=uuid).delete()
-            except NameError as e:
-                logger.error(e)
-                return HttpResponseBadRequest(content="Bad Request")
-            except Analysis.DoesNotExist as e:
-                logger.error(e)
-                return HttpResponseNotFound(content="Analysis with UUID: {} "
-                                                    "not found.".format(uuid))
-            except Analysis.MultipleObjectsReturned as e:
-                logger.error(e)
-                return HttpResponseServerError(
-                    content="Multiple Analyses returned for this request")
-            else:
-                if analysis_deleted[0]:
-                    return Response({"data": analysis_deleted[1]})
-                else:
-                    return HttpResponseBadRequest(content=analysis_deleted[1])
+            return (
+                Response({"data": analysis_deleted[1]})
+                if analysis_deleted[0]
+                else HttpResponseBadRequest(content=analysis_deleted[1])
+            )
 
 
 class GroupViewSet(viewsets.ViewSet):
@@ -1112,13 +1109,12 @@ class GroupViewSet(viewsets.ViewSet):
                     )
                 # Demote
                 if group.is_manager_group():
-                    if len(group.user_set.all()) > 1:
-                        group.user_set.remove(edit_user)
-                        return Response(uuid)
-                    else:
+                    if len(group.user_set.all()) <= 1:
                         return HttpResponseBadRequest(
                             content="Last manager must delete group to leave."
                         )
+                    group.user_set.remove(edit_user)
+                    return Response(uuid)
                 # Leave
                 if group.is_user_a_group_manager(edit_user):
                     return HttpResponseBadRequest(
@@ -1283,7 +1279,7 @@ class InvitationViewSet(viewsets.ViewSet):
         ).total_seconds() >= 0
 
     def send_email(self, request, invitation, group):
-        subject = "Invitation to join group {}".format(group.name)
+        subject = f"Invitation to join group {group.name}"
         temp_loader = loader.get_template(
             'group_invitation/group_invite_email.txt')
         context_dict = {
@@ -1351,15 +1347,19 @@ class CustomRegistrationView(RegistrationView):
         return new_user
 
     def form_valid(self, form):
-        if not self.request.recaptcha_is_valid:
-            return render(
-                self.request, "registration/registration_form.html",
+        return (
+            super(CustomRegistrationView, self).form_valid(form)
+            if self.request.recaptcha_is_valid
+            else render(
+                self.request,
+                "registration/registration_form.html",
                 {
                     "form": form,
-                    "recaptcha_error_message": "* Could not verify reCAPTCHA"
-                }, status=400
+                    "recaptcha_error_message": "* Could not verify reCAPTCHA",
+                },
+                status=400,
             )
-        return super(CustomRegistrationView, self).form_valid(form)
+        )
 
 
 class OpenIDTokenAPIView(APIView):
@@ -1379,7 +1379,7 @@ class OpenIDTokenAPIView(APIView):
             client = boto3.client('cognito-identity',
                                   region_name=settings.REFINERY_AWS_REGION)
         except botocore.exceptions.NoRegionError as exc:
-            message = "Server AWS configuration is incorrect: {}".format(exc)
+            message = f"Server AWS configuration is incorrect: {exc}"
             logger.error(message)
             return api_error_response(
                 message, status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -1392,12 +1392,7 @@ class OpenIDTokenAPIView(APIView):
             )
         except (botocore.exceptions.ClientError,
                 botocore.exceptions.ParamValidationError) as exc:
-            message =\
-                "Could not obtain OpenID token for " \
-                "user '{}' in Identity Pool '{}': {}".format(
-                    request.user.username, settings.COGNITO_IDENTITY_POOL_ID,
-                    exc
-                )
+            message = f"Could not obtain OpenID token for user '{request.user.username}' in Identity Pool '{settings.COGNITO_IDENTITY_POOL_ID}': {exc}"
             logger.error(message)
             return api_error_response(
                 message, status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -1506,8 +1501,7 @@ class SiteProfileAPIView(APIView):
                         id=new_video_data.get('id')
                     )
                 except SiteVideo.MultipleObjectsReturned as e:
-                    logger.error("Duplicate site videos found for id %s."
-                                 % new_video_data.get('id'))
+                    logger.error(f"Duplicate site videos found for id {new_video_data.get('id')}.")
                     return HttpResponseServerError(e)
                 except SiteVideo.DoesNotExist:
                     vid_serializer = SiteVideoSerializer(data=new_video_data)

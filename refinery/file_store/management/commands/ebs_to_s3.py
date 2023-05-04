@@ -26,37 +26,33 @@ class Command(BaseCommand):
             except NotImplementedError:
                 # make sure SymlinkedFileSystemStorage is the default backend
                 raise CommandError(
-                    "No path available for FileStoreItem with UUID '{}'."
-                    "Is default storage backend file based?".format(item.uuid)
+                    f"No path available for FileStoreItem with UUID '{item.uuid}'.Is default storage backend file based?"
                 )
             except ValueError:  # no datafile available
                 continue
 
             # skip files that have already been transferred to S3
             if '/' not in item.datafile.name[:7]:
-                self.stdout.write("Skipping {}: already transferred".format(
-                    item.datafile.name))
+                self.stdout.write(f"Skipping {item.datafile.name}: already transferred")
                 continue
 
             # transfer the file
             key = storage.get_name(file_name)
-            self.stdout.write("Moving '{}' to 's3://{}/{}'".format(
-                item.datafile.path, settings.MEDIA_BUCKET, key))
+            self.stdout.write(
+                f"Moving '{item.datafile.path}' to 's3://{settings.MEDIA_BUCKET}/{key}'"
+            )
             try:
                 s3.upload_file(item.datafile.path, settings.MEDIA_BUCKET, key,
                                ExtraArgs=S3_WRITE_ARGS)
             except (EnvironmentError, botocore.exceptions.BotoCoreError,
                     botocore.exceptions.ClientError) as exc:
                 raise CommandError(
-                    "Error uploading from '{}' to 's3://{}/{}': {}".format(
-                        item.datafile.path, settings.MEDIA_BUCKET, key, exc
-                    )
+                    f"Error uploading from '{item.datafile.path}' to 's3://{settings.MEDIA_BUCKET}/{key}': {exc}"
                 )
             try:
                 os.unlink(item.datafile.path)
             except EnvironmentError as exc:
-                raise CommandError("Error deleting '{}': {}".format(
-                    item.datafile.path, exc))
+                raise CommandError(f"Error deleting '{item.datafile.path}': {exc}")
 
             item.datafile.name = key
             item.save()

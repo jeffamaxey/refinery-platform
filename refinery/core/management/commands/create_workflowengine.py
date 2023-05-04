@@ -37,8 +37,7 @@ class Command(BaseCommand):
             raise CommandError("Please provide a Galaxy instance ID")
         except Instance.DoesNotExist:
             raise CommandError(
-                "Unable to retrieve Galaxy instance with id '%s'" %
-                options["galaxy_instance_id"]
+                f"""Unable to retrieve Galaxy instance with id '{options["galaxy_instance_id"]}'"""
             )
         # get *manager* group for indicated group
         try:
@@ -50,11 +49,14 @@ class Command(BaseCommand):
                 name=group_name).manager_group
         except ExtendedGroup.DoesNotExist:
             raise CommandError(
-                "Unable to retrieve manager group for group with name %s." %
-                group_name)
+                f"Unable to retrieve manager group for group with name {group_name}."
+            )
         workflow_engine = WorkflowEngine.objects.create(
-            instance=instance, name=instance.description,
-            summary=instance.base_url + " " + instance.api_key)
+            instance=instance,
+            name=instance.description,
+            summary=f"{instance.base_url} {instance.api_key}",
+        )
         workflow_engine.set_manager_group(manager_group)
-        self.stdout.write("Created workflow engine '%s' for group '%s'" %
-                          (workflow_engine.name, group_name))
+        self.stdout.write(
+            f"Created workflow engine '{workflow_engine.name}' for group '{group_name}'"
+        )

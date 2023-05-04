@@ -92,8 +92,7 @@ class UserProfile(models.Model):
     login_count = models.IntegerField(default=0)
 
     def __str__(self):
-        return self.user.first_name + " " + self.user.last_name + \
-               " (" + self.affiliation + "): " + self.user.email
+        return f"{self.user.first_name} {self.user.last_name} ({self.affiliation}): {self.user.email}"
 
     def has_viewed_data_upload_tut(self):
         try:
@@ -139,11 +138,7 @@ def add_user_to_public_group(sender, instance, created, **kwargs):
     """Add users to Public group automatically
 
     """
-    public_group = ExtendedGroup.objects.public_group()
-    # need to check if Public group exists to avoid errors when creating
-    # user accounts (like superuser and AnonymousUser) before the group
-    # is created by init_refinery command
-    if public_group:
+    if public_group := ExtendedGroup.objects.public_group():
         instance.groups.add(public_group)
 
 
@@ -227,14 +222,7 @@ class Tutorials(models.Model):
     data_upload_tutorial_viewed = models.BooleanField(default=False)
 
     def __str__(self):
-        return (
-            "User: {} | Collaboration: {}, DataUpload:"
-            " {}".format(
-             self.user_profile.user.username,
-             self.collaboration_tutorial_viewed,
-             self.data_upload_tutorial_viewed
-            )
-        )
+        return f"User: {self.user_profile.user.username} | Collaboration: {self.collaboration_tutorial_viewed}, DataUpload: {self.data_upload_tutorial_viewed}"
 
 
 class BaseResource(models.Model):
@@ -253,7 +241,7 @@ class BaseResource(models.Model):
     slug = models.CharField(max_length=250, blank=True, null=True)
 
     def __str__(self):
-        return self.name + " (" + self.uuid + ")"
+        return f"{self.name} ({self.uuid})"
 
     class Meta:
         abstract = True
@@ -311,20 +299,20 @@ class OwnableResource(BaseResource):
         return self.name
 
     def set_owner(self, user):
-        assign_perm("add_%s" % self._meta.verbose_name, user, self)
-        assign_perm("read_%s" % self._meta.verbose_name, user, self)
-        assign_perm("delete_%s" % self._meta.verbose_name, user, self)
-        assign_perm("change_%s" % self._meta.verbose_name, user, self)
+        assign_perm(f"add_{self._meta.verbose_name}", user, self)
+        assign_perm(f"read_{self._meta.verbose_name}", user, self)
+        assign_perm(f"delete_{self._meta.verbose_name}", user, self)
+        assign_perm(f"change_{self._meta.verbose_name}", user, self)
         if self._meta.verbose_name == 'dataset':
-            assign_perm("read_meta_%s" % self._meta.verbose_name, user, self)
+            assign_perm(f"read_meta_{self._meta.verbose_name}", user, self)
 
     def remove_owner(self, user):
-        remove_perm("add_%s" % self._meta.verbose_name, user, self)
-        remove_perm("read_%s" % self._meta.verbose_name, user, self)
-        remove_perm("delete_%s" % self._meta.verbose_name, user, self)
-        remove_perm("change_%s" % self._meta.verbose_name, user, self)
+        remove_perm(f"add_{self._meta.verbose_name}", user, self)
+        remove_perm(f"read_{self._meta.verbose_name}", user, self)
+        remove_perm(f"delete_{self._meta.verbose_name}", user, self)
+        remove_perm(f"change_{self._meta.verbose_name}", user, self)
         if self._meta.verbose_name == 'dataset':
-            remove_perm("read_meta_%s" % self._meta.verbose_name, user, self)
+            remove_perm(f"read_meta_{self._meta.verbose_name}", user, self)
 
     def transfer_ownership(self, user, new_owner):
         self.remove_owner(user)
@@ -337,20 +325,20 @@ class OwnableResource(BaseResource):
             attach_perms=True,
             with_group_users=False
         )
-        for user, permission in user_permissions.items():
-            if "add_%s" % self._meta.verbose_name in permission:
-                return user
-        return None
+        return next(
+            (
+                user
+                for user, permission in user_permissions.items()
+                if f"add_{self._meta.verbose_name}" in permission
+            ),
+            None,
+        )
 
     def get_owner_username(self):
-        if self.get_owner():
-            return self.get_owner().username
-        else:
-            return "(no owner assigned)"
+        return self.get_owner().username if self.get_owner() else "(no owner assigned)"
 
     def get_owner_full_name(self):
-        owner = self.get_owner()
-        if owner:
+        if owner := self.get_owner():
             return owner.get_full_name() or owner.username
         else:
             return "(no owner assigned)"
@@ -375,7 +363,7 @@ class SharableResource(OwnableResource):
     def get_owner(self):
         owner = None
         content_type_id = ContentType.objects.get_for_model(self).id
-        codename = 'share_%s' % self._meta.verbose_name
+        codename = f'share_{self._meta.verbose_name}'
         try:
             permission_id = Permission.objects.filter(
                 codename=codename
@@ -402,11 +390,11 @@ class SharableResource(OwnableResource):
 
     def set_owner(self, user):
         super(SharableResource, self).set_owner(user)
-        assign_perm("share_%s" % self._meta.verbose_name, user, self)
+        assign_perm(f"share_{self._meta.verbose_name}", user, self)
 
     def remove_owner(self, user):
         super(SharableResource, self).remove_owner(user)
-        remove_perm("share_%s" % self._meta.verbose_name, user, self)
+        remove_perm(f"share_{self._meta.verbose_name}", user, self)
 
     """
     Sharing something always grants read and add permission
@@ -414,20 +402,20 @@ class SharableResource(OwnableResource):
     """
 
     def share(self, group, readonly=True):
-        assign_perm('read_%s' % self._meta.verbose_name, group, self)
-        assign_perm('add_%s' % self._meta.verbose_name, group, self)
-        remove_perm('change_%s' % self._meta.verbose_name, group, self)
-        remove_perm('share_%s' % self._meta.verbose_name, group, self)
-        remove_perm('delete_%s' % self._meta.verbose_name, group, self)
+        assign_perm(f'read_{self._meta.verbose_name}', group, self)
+        assign_perm(f'add_{self._meta.verbose_name}', group, self)
+        remove_perm(f'change_{self._meta.verbose_name}', group, self)
+        remove_perm(f'share_{self._meta.verbose_name}', group, self)
+        remove_perm(f'delete_{self._meta.verbose_name}', group, self)
         if not readonly:
-            assign_perm('change_%s' % self._meta.verbose_name, group, self)
+            assign_perm(f'change_{self._meta.verbose_name}', group, self)
 
     def unshare(self, group):
-        remove_perm('read_%s' % self._meta.verbose_name, group, self)
-        remove_perm('change_%s' % self._meta.verbose_name, group, self)
-        remove_perm('add_%s' % self._meta.verbose_name, group, self)
-        remove_perm('delete_%s' % self._meta.verbose_name, group, self)
-        remove_perm('share_%s' % self._meta.verbose_name, group, self)
+        remove_perm(f'read_{self._meta.verbose_name}', group, self)
+        remove_perm(f'change_{self._meta.verbose_name}', group, self)
+        remove_perm(f'add_{self._meta.verbose_name}', group, self)
+        remove_perm(f'delete_{self._meta.verbose_name}', group, self)
+        remove_perm(f'share_{self._meta.verbose_name}', group, self)
 
     # TODO: clean this up
     def get_groups(self, changeonly=False, readonly=False, readmetaonly=False):
@@ -470,12 +458,7 @@ class SharableResource(OwnableResource):
     def get_group_ids(self, changeonly=False, readonly=False):
         groups = get_groups_with_perms(self)
 
-        ids = []
-
-        for group in groups:
-            ids.append(group.id)
-
-        return ids
+        return [group.id for group in groups]
 
     # TODO: clean this up
     def is_public(self):
@@ -501,7 +484,7 @@ class TemporaryResource(models.Model):
     expiration = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return self.name + " (" + self.uuid + ")"
+        return f"{self.name} ({self.uuid})"
 
     class Meta:
         abstract = True
@@ -513,20 +496,20 @@ class ManageableResource(models.Model):
     """
 
     def __str__(self):
-        return self.name + " (" + self.uuid + ")"
+        return f"{self.name} ({self.uuid})"
 
     def set_manager_group(self, group):
-        assign_perm("add_%s" % self._meta.verbose_name, group, self)
-        assign_perm("read_%s" % self._meta.verbose_name, group, self)
-        assign_perm("delete_%s" % self._meta.verbose_name, group, self)
-        assign_perm("change_%s" % self._meta.verbose_name, group, self)
+        assign_perm(f"add_{self._meta.verbose_name}", group, self)
+        assign_perm(f"read_{self._meta.verbose_name}", group, self)
+        assign_perm(f"delete_{self._meta.verbose_name}", group, self)
+        assign_perm(f"change_{self._meta.verbose_name}", group, self)
 
     def get_manager_group(self):
         # ownership is determined by "add" permission
         group_permissions = get_groups_with_perms(self, attach_perms=True)
 
         for group, permission in group_permissions.items():
-            if "add_%s" % self._meta.verbose_name in permission:
+            if f"add_{self._meta.verbose_name}" in permission:
                 return group.extendedgroup
 
     class Meta:
@@ -560,11 +543,7 @@ class DataSet(SharableResource):
         )
 
     def __str__(self):
-        return (
-            str(self.name) + ' - ' +
-            str(self.get_owner_username()) + ' - ' +
-            str(self.summary)
-        )
+        return f'{str(self.name)} - {str(self.get_owner_username())} - {str(self.summary)}'
 
     def save(self, *args, **kwargs):
         # We need to manually check if the title to be saved is blank because
@@ -580,14 +559,12 @@ class DataSet(SharableResource):
         try:
             super(DataSet, self).delete()
         except Exception as exc:
-            return False, "DataSet {} could not be deleted: {}".format(
-                self.name, exc)
+            return False, f"DataSet {self.name} could not be deleted: {exc}"
         else:
             # Return a "truthy" value here so that the admin ui and
             # front-end ui knows if the deletion succeeded or not as well as
             # the proper message to  display to the end user
-            return True, "DataSet: {} was deleted successfully".format(
-                self.name)
+            return True, f"DataSet: {self.name} was deleted successfully"
 
     def get_analyses(self):
         return Analysis.objects.filter(data_set=self)
@@ -658,18 +635,15 @@ class DataSet(SharableResource):
                          "%s: %s", version, exc)
 
     def get_latest_study(self):
-        latest_investigation = self.get_investigation()
-        if latest_investigation:
+        if latest_investigation := self.get_investigation():
             return latest_investigation.get_study()
 
     def get_latest_assay(self):
-        latest_investigation = self.get_investigation()
-        if latest_investigation:
+        if latest_investigation := self.get_investigation():
             return latest_investigation.get_assay()
 
     def get_investigation(self, version=None):
-        investigation_link = self.get_latest_investigation_link(version)
-        if investigation_link:
+        if investigation_link := self.get_latest_investigation_link(version):
             return investigation_link.investigation
 
     def get_studies(self, version=None):
@@ -693,20 +667,22 @@ class DataSet(SharableResource):
 
     def get_file_size(self):
         """Returns the disk space in bytes used by all files in the data set"""
-        return sum([node.file_item.get_file_size() for node
-                    in self.get_file_nodes().select_related('file_item')])
+        return sum(
+            node.file_item.get_file_size()
+            for node in self.get_file_nodes().select_related('file_item')
+        )
 
     def share(self, group, readonly=True, readmetaonly=False):
         # change: !readonly & !readmetaonly, read: readonly & !readmetaonly
         super(DataSet, self).share(group, readonly)
-        assign_perm('read_meta_%s' % self._meta.verbose_name, group, self)
+        assign_perm(f'read_meta_{self._meta.verbose_name}', group, self)
 
         # read_meta only case; super reads as edit and is fixed here because
         # it only applies to data set
         if not readonly and readmetaonly:
-            remove_perm('read_%s' % self._meta.verbose_name, group, self)
-            remove_perm('add_%s' % self._meta.verbose_name, group, self)
-            remove_perm('change_%s' % self._meta.verbose_name, group, self)
+            remove_perm(f'read_{self._meta.verbose_name}', group, self)
+            remove_perm(f'add_{self._meta.verbose_name}', group, self)
+            remove_perm(f'change_{self._meta.verbose_name}', group, self)
 
         update_data_set_index(self)
         invalidate_cached_object(self)
@@ -718,17 +694,17 @@ class DataSet(SharableResource):
 
     def unshare(self, group):
         super(DataSet, self).unshare(group)
-        remove_perm('read_meta_%s' % self._meta.verbose_name, group, self)
+        remove_perm(f'read_meta_{self._meta.verbose_name}', group, self)
 
         update_data_set_index(self)
         # Need to check if the users of the group that is unshared still have
         # access via other groups or by ownership
         users = group.user_set.all()
-        user_ids = []
-        for user in users:
-            if not user.has_perm('core.read_meta_dataset', DataSet):
-                user_ids.append(user.id)
-
+        user_ids = [
+            user.id
+            for user in users
+            if not user.has_perm('core.read_meta_dataset', DataSet)
+        ]
         # We need to give the anonymous user read access too.
         if group.id == ExtendedGroup.objects.public_group().id:
             user_ids.append(-1)
@@ -736,8 +712,7 @@ class DataSet(SharableResource):
     def get_file_store_items(self):
         """Get a list of FileStoreItem instances corresponding to a
         DataSet's latest Investigation"""
-        latest_investigation = self.get_investigation()
-        if latest_investigation:
+        if latest_investigation := self.get_investigation():
             return latest_investigation.get_file_store_items()
 
     @cached_property
@@ -781,7 +756,7 @@ class DataSet(SharableResource):
         :return: boolean
         """
         has_non_failed_analyses = any(
-            [not analysis.failed() for analysis in self.get_analyses()]
+            not analysis.failed() for analysis in self.get_analyses()
         )
         return not (
             has_non_failed_analyses or self.has_visualizations()
@@ -804,16 +779,12 @@ class DataSet(SharableResource):
         """
         if not self.is_clean():
             raise RuntimeError(
-                "DataSet with UUID: {} is not clean (There have "
-                "been Analyses or Visualizations performed on it) "
-                "Remove these objects and try again"
-                .format(self.uuid)
+                f"DataSet with UUID: {self.uuid} is not clean (There have been Analyses or Visualizations performed on it) Remove these objects and try again"
             )
         self._associate_datafiles_with_investigation(investigation)
         updated_data_set_title = investigation.get_title()
         self.update_investigation(
-            investigation,
-            "Metadata Revision: for {}".format(updated_data_set_title)
+            investigation, f"Metadata Revision: for {updated_data_set_title}"
         )
         data_set_manager.tasks.annotate_nodes(investigation.uuid)
         self.set_title(updated_data_set_title)
@@ -884,11 +855,7 @@ class InvestigationLink(models.Model):
         unique_together = ('data_set', 'investigation', 'version')
 
     def __str__(self):
-        retstr = (
-            "%s: ver=%s, %s"
-            % (self.investigation.get_identifier(), self.version, self.message)
-        )
-        return retstr
+        return f"{self.investigation.get_identifier()}: ver={self.version}, {self.message}"
 
     def get_node_collection(self):
         try:
@@ -907,7 +874,7 @@ class WorkflowEngine(OwnableResource, ManageableResource):
     instance = models.ForeignKey(Instance, blank=True)
 
     def __str__(self):
-        return str(self.name) + " - " + str(self.summary)
+        return f"{str(self.name)} - {str(self.summary)}"
 
     class Meta:
         verbose_name = "workflowengine"
@@ -958,7 +925,7 @@ class Workflow(SharableResource, ManageableResource):
     objects = WorkflowManager()
 
     def __str__(self):
-        return "{} - {}".format(self.name, self.summary)
+        return f"{self.name} - {self.summary}"
 
     class Meta:
         # unique_together = ('internal_id', 'workflow_engine')
@@ -982,12 +949,7 @@ class Workflow(SharableResource, ManageableResource):
 
             self.is_active = False
             # Prepare string to display upon a failed deletion
-            deletion_error_message = "Could not delete Workflow: {}, " \
-                                     "These Analyses have been run " \
-                                     "utilizing it: {}. Setting it as " \
-                                     "'inactive'".format(
-                                            self.name, self.get_analyses()
-                                        )
+            deletion_error_message = f"Could not delete Workflow: {self.name}, These Analyses have been run utilizing it: {self.get_analyses()}. Setting it as 'inactive'"
             logger.error(deletion_error_message)
 
             self.save()
@@ -1003,19 +965,14 @@ class Workflow(SharableResource, ManageableResource):
             # Return a "truthy" value here so that the admin ui knows if the
             # deletion succeeded or not as well as the proper message to
             # display to the end user
-            return True, "Workflow: {} was deleted successfully".format(
-                self.name
-            )
+            return True, f"Workflow: {self.name} was deleted successfully"
 
 
 class Project(SharableResource):
     is_catch_all = models.BooleanField(default=False)
 
     def __str__(self):
-        return (
-            str(self.name) + " - " + str(self.get_owner_username()) + " - " +
-            str(self.summary)
-        )
+        return f"{str(self.name)} - {str(self.get_owner_username())} - {str(self.summary)}"
 
     class Meta:
         verbose_name = "project"
@@ -1062,8 +1019,7 @@ class Analysis(OwnableResource):
         ordering = ['-time_end', '-time_start']
 
     def __str__(self):
-        return "{} - {} - {}".format(self.name, self.get_owner_username(),
-                                     self.summary)
+        return f"{self.name} - {self.get_owner_username()} - {self.summary}"
 
     def get_expanded_workflow_graph(self):
         self.refresh_from_db(fields=['workflow_copy'])
@@ -1099,13 +1055,7 @@ class Analysis(OwnableResource):
         and AnalysisStatus'
         """
         if self.has_nodes_used_in_downstream_analyses():
-            deletion_error_message = (
-                "Cannot delete Analysis: {} because "
-                "its results have been used to run "
-                "further Analyses. Please delete all "
-                "downstream Analyses before you delete "
-                "this one".format(self.name)
-            )
+            deletion_error_message = f"Cannot delete Analysis: {self.name} because its results have been used to run further Analyses. Please delete all downstream Analyses before you delete this one"
             logger.error(deletion_error_message)
 
             # Return a "falsey" value here so that the admin ui and
@@ -1116,14 +1066,12 @@ class Analysis(OwnableResource):
         try:
             super(Analysis, self).delete()
         except Exception as exc:
-            return False, "Analysis {} could not be deleted: {}".format(
-                self.name, exc)
+            return False, f"Analysis {self.name} could not be deleted: {exc}"
         else:
             # Return a "truthy" value here so that the admin ui and
             # front-end ui knows if the deletion succeeded or not as well
             # as the proper message to  display to the end user
-            return True, "Analysis: {} was deleted successfully".format(
-                self.name)
+            return True, f"Analysis: {self.name} was deleted successfully"
 
     def get_status(self):
         return self.status
@@ -1156,7 +1104,7 @@ class Analysis(OwnableResource):
         """Set analysis status and perform additional actions as required"""
         self.status = status
         self.status_detail = message
-        if status == self.FAILURE_STATUS or status == self.SUCCESS_STATUS:
+        if status in [self.FAILURE_STATUS, self.SUCCESS_STATUS]:
             self.time_end = timezone.now()
         self.save()
 
@@ -1181,8 +1129,7 @@ class Analysis(OwnableResource):
         try:
             history = connection.histories.get_status(self.history_id)
         except galaxy.client.ConnectionError as exc:
-            error_msg = "Unable to get progress for history {} of analysis " \
-                        "{}: {}".format(self.history_id, self.name, exc)
+            error_msg = f"Unable to get progress for history {self.history_id} of analysis {self.name}: {exc}"
             # if history with provided ID doesn't exist (HTTP 400)
             if '400' in str(exc):
                 logger.error(error_msg)
@@ -1195,7 +1142,7 @@ class Analysis(OwnableResource):
 
         if (history['state'] == 'error' or
                 history['state_details']['error'] > 0):
-            error_msg = "Analysis '{}' failed in Galaxy".format(self)
+            error_msg = f"Analysis '{self}' failed in Galaxy"
             logger.error(error_msg)
             self.set_status(Analysis.FAILURE_STATUS, error_msg)
             raise RuntimeError()
@@ -1215,7 +1162,7 @@ class Analysis(OwnableResource):
             self.get_status() == self.SUCCESS_STATUS
         ]
 
-        if any(cleanup_state for cleanup_state in galaxy_cleanup_states):
+        if any(galaxy_cleanup_states):
             logger.info("Purging galaxy of libraries, histories, "
                         "and workflows related to the execution of Analysis "
                         "with UUID: %s", self.uuid)
@@ -1249,11 +1196,7 @@ class Analysis(OwnableResource):
         self.galaxy_cleanup()
 
     def facet_name(self):
-        return '{}_{}_{}_s'.format(
-            NodeIndex.ANALYSIS_UUID_PREFIX,
-            self.data_set.get_latest_study().id,
-            self.data_set.get_latest_assay().id,
-        )
+        return f'{NodeIndex.ANALYSIS_UUID_PREFIX}_{self.data_set.get_latest_study().id}_{self.data_set.get_latest_assay().id}_s'
 
     def send_email(self):
         """Sends an email when the analysis is finished"""
@@ -1280,16 +1223,13 @@ class Analysis(OwnableResource):
                         'uuid': self.uuid
                         }
         if self.successful():
-            email_subj = "[{}] Archive ready for download: {}".format(
-                site_name, name)
+            email_subj = f"[{site_name}] Archive ready for download: {name}"
             # TODO: avoid hardcoding URL protocol
             context_dict['url'] = urljoin(
-                "http://" + site_domain,
-                "data_sets/{}/#/analyses".format(data_set_uuid)
+                f"http://{site_domain}", f"data_sets/{data_set_uuid}/#/analyses"
             )
         else:
-            email_subj = "[{}] Archive creation failed: {}".format(
-                site_name, name)
+            email_subj = f"[{site_name}] Archive creation failed: {name}"
             context_dict['default_email'] = settings.DEFAULT_FROM_EMAIL
 
         if settings.REFINERY_REPOSITORY_MODE:
@@ -1310,10 +1250,10 @@ class Analysis(OwnableResource):
             hours = int(hours)
             minutes = int(minutes)
             if hours < 10:
-                hours = '0%s' % hours
+                hours = f'0{hours}'
             if minutes < 10:
-                minutes = '0%s' % minutes
-            duration = "%s:%s hours" % (hours, minutes)
+                minutes = f'0{minutes}'
+            duration = f"{hours}:{minutes} hours"
 
             # fill in extra context
             context_dict['workflow'] = workflow
@@ -1324,8 +1264,7 @@ class Analysis(OwnableResource):
             context_dict['duration'] = duration
 
             # get email contents ready
-            email_subj = "[{}] {}: {} ({})".format(
-                site_name, status, name, workflow)
+            email_subj = f"[{site_name}] {status}: {name} ({workflow})"
             temp_loader = loader.get_template(
                 'analysis_manager/analysis_email_full.txt')
 
@@ -1661,7 +1600,7 @@ class AnalysisResult(models.Model):
         )
 
     def __str__(self):
-        return str(self.file_name) + " <-> " + self.analysis.uuid
+        return f"{str(self.file_name)} <-> {self.analysis.uuid}"
 
 
 @receiver(pre_delete, sender=Analysis)
@@ -1722,19 +1661,13 @@ class AnalysisNodeConnection(models.Model):
                                            max_length=250)
 
     def __str__(self):
-        return "{}: {}_{} ({}) {}".format(
-            self.direction,
-            self.step,
-            self.name,
-            self.is_refinery_file,
-            self.filetype
-        )
+        return f"{self.direction}: {self.step}_{self.name} ({self.is_refinery_file}) {self.filetype}"
 
     def get_input_connection_id(self):
-        return "{}_{}".format(self.step, self.filename)
+        return f"{self.step}_{self.filename}"
 
     def get_output_connection_id(self):
-        return "{}_{}".format(self.step, self.name)
+        return f"{self.step}_{self.name}"
 
 
 class Download(TemporaryResource, OwnableResource):
@@ -1742,22 +1675,26 @@ class Download(TemporaryResource, OwnableResource):
     analysis = models.ForeignKey(Analysis, default=None, null=True)
     file_store_item = models.ForeignKey(FileStoreItem, default=None, null=True)
 
+
+
     class Meta:
         verbose_name = "download"
-        permissions = (
-            ('read_%s' % verbose_name, 'Can read %s' % verbose_name),
-        )
+        permissions = ((f'read_{verbose_name}', f'Can read {verbose_name}'), )
 
 
 def get_shared_groups(user1, user2, include_public_group=False):
     """returns a list of extended groups of which both users are a member"""
     shared_groups = list(set(user1.groups.all()) & set(user2.groups.all()))
 
-    if not include_public_group:
-        return [eg for eg in [g.extendedgroup for g in shared_groups]
-                if eg != ExtendedGroup.objects.public_group()]
-
-    return [g.extendedgroup for g in shared_groups]
+    return (
+        [g.extendedgroup for g in shared_groups]
+        if include_public_group
+        else [
+            eg
+            for eg in [g.extendedgroup for g in shared_groups]
+            if eg != ExtendedGroup.objects.public_group()
+        ]
+    )
 
 
 class ExtendedGroupManager(models.Manager):
@@ -1798,13 +1735,11 @@ class ExtendedGroup(Group):
                 i.group_ptr.delete()
 
             super(ExtendedGroup, self).delete()
+        elif self.manager_group.managed_group.count() > 1:
+            super(ExtendedGroup, self).delete()
         else:
-            # Somehow not the only managed group. Shouldn't be possible.
-            if self.manager_group.managed_group.count() > 1:
-                super(ExtendedGroup, self).delete()
-            else:
-                # Recursive call.
-                self.manager_group.delete()
+            # Recursive call.
+            self.manager_group.delete()
 
     def is_managed(self):
         return (self.manager_group is not None)
@@ -1835,7 +1770,7 @@ def create_manager_group(sender, instance, created, **kwargs):
         # (but don't create manager groups for manager groups ...)
         post_save.disconnect(create_manager_group, sender=ExtendedGroup)
         instance.manager_group = ExtendedGroup.objects.create(
-            name=str(".Managers " + instance.uuid)
+            name=str(f".Managers {instance.uuid}")
         )
         instance.save()
         instance.manager_group.save()
@@ -1855,7 +1790,7 @@ class Invitation(models.Model):
     recipient_email = models.CharField(max_length=250, null=True)
 
     def __str__(self):
-        return str(self.token_uuid) + ' | ' + str(self.group_id)
+        return f'{str(self.token_uuid)} | {str(self.group_id)}'
 
     def save(self, *arg, **kwargs):
         if not self.id:
@@ -1916,7 +1851,7 @@ class CustomRegistrationManager(RegistrationManager):
             new_user_profile = UserProfile.objects.get(user=new_user.id)
         except (UserProfile.DoesNotExist,
                 UserProfile.MultipleObjectsReturned) as e:
-            logger.error("Error while fetching Userprofile: %s" % e)
+            logger.error(f"Error while fetching Userprofile: {e}")
 
         if new_user_profile:
             new_user_profile.affiliation = affiliation
@@ -1982,17 +1917,15 @@ class CustomRegistrationProfile(RegistrationProfile):
 
 
         """
-        ctx_dict = {'activation_key': self.activation_key,
-                    'expiration_days': settings.ACCOUNT_ACTIVATION_DAYS,
-                    'site': site.domain,
-                    'registered_user_email': self.user.email,
-                    'registered_user_username': self.user.username,
-                    'registered_user_full_name': "{} {}".format(
-                        self.user.first_name, self.user.last_name),
-                    'registered_user_affiliation':
-                        self.user.profile.affiliation
-
-                    }
+        ctx_dict = {
+            'activation_key': self.activation_key,
+            'expiration_days': settings.ACCOUNT_ACTIVATION_DAYS,
+            'site': site.domain,
+            'registered_user_email': self.user.email,
+            'registered_user_username': self.user.username,
+            'registered_user_full_name': f"{self.user.first_name} {self.user.last_name}",
+            'registered_user_affiliation': self.user.profile.affiliation,
+        }
         subject = render_to_string('registration/activation_email_subject.txt',
                                    ctx_dict)
         # Email subject *must not* contain newlines
@@ -2119,11 +2052,15 @@ class SiteStatistics(models.Model):
 
     def get_csv_row(self, aggregates=False):
         def get_aggregate_sum(field_name):
-            if not aggregates:
-                return getattr(self, field_name)
-            return list(SiteStatistics.objects.filter(
-                run_date__lte=self.run_date
-            ).aggregate(Sum(field_name)).values())[0]
+            return (
+                list(
+                    SiteStatistics.objects.filter(run_date__lte=self.run_date)
+                    .aggregate(Sum(field_name))
+                    .values()
+                )[0]
+                if aggregates
+                else getattr(self, field_name)
+            )
 
         return [
             self.pk, get_aggregate_sum("datasets_shared"),
@@ -2411,15 +2348,9 @@ class Event(models.Model):
                 elif self.sub_type == Event.ANALYSIS_DELETION:
                     return self.render_data_set_analysis_deletion()
                 else:
-                    raise Exception(
-                        'Invalid event sub-type for data_set: {}'.format(
-                            self.sub_type
-                        )
-                    )
+                    raise Exception(f'Invalid event sub-type for data_set: {self.sub_type}')
             else:
-                raise Exception(
-                    'Invalid event type for data_set: {}'.format(self.type)
-                )
+                raise Exception(f'Invalid event type for data_set: {self.type}')
         elif self.group is not None and self.data_set is None:
             if self.type == Event.CREATE:
                 return self.render_group_create()
@@ -2441,21 +2372,12 @@ class Event(models.Model):
                 elif self.sub_type == Event.USER_REMOVAL:
                     return self.render_group_user_removal()
                 else:
-                    raise Exception(
-                        'Invalid event sub-type for group: {}'.format(
-                            self.sub_type
-                        )
-                    )
+                    raise Exception(f'Invalid event sub-type for group: {self.sub_type}')
             else:
-                raise Exception(
-                    'Invalid event type for group: {}'.format(self.type)
-                )
+                raise Exception(f'Invalid event type for group: {self.type}')
         else:
             raise Exception(
-                'Expected exactly one of data_set and group to be not None, '
-                'instead data_set="{}" and group="{}"'.format(
-                    self.data_set, self.group
-                )
+                f'Expected exactly one of data_set and group to be not None, instead data_set="{self.data_set}" and group="{self.group}"'
             )
 
 # TODO

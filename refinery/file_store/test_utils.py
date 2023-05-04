@@ -75,4 +75,4 @@ class SymlinkedFileSystemStorageTest(SimpleTestCase):
     def test_max_name_length(self, mock_get_available_name):
         name = ''.join('a' for _ in range(256))
         self.storage.get_available_name(name)
-        mock_get_available_name.assert_called_with('81/10/' + name[-255:])
+        mock_get_available_name.assert_called_with(f'81/10/{name[-255:]}')

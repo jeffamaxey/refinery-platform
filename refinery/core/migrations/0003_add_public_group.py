@@ -15,9 +15,9 @@ def backwards(apps, schema_editor):
     try:
         ExtendedGroup.objects.get(
             id=settings.REFINERY_PUBLIC_GROUP_ID).delete()
-    except(ExtendedGroup.DoesNotExist,
+    except (ExtendedGroup.DoesNotExist,
            ExtendedGroup.MultipleObjectsReturned) as e:
-        sys.stderr.write("Error fetching Public Group: {}".format(e))
+        sys.stderr.write(f"Error fetching Public Group: {e}")
 
 
 class Migration(migrations.Migration):

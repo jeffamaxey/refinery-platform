@@ -284,41 +284,39 @@ class IsaTabParser:
         """
         # TODO: test if this is really a node
         header_components = self._split_header(headers[-len(row)])
-        # TODO: for a node the number of header components must be 1
-        # assert(len(header_components)) == 1
-
-        # try to retrieve this node from the database (unless it is a
-        # normalization or data transformation)
-        is_new = True
-
         # name of the node
         node_name = row[0].strip()
 
         # TODO: remove this once it has been implemented in the preprocessing
-        if (header_components[0] == Node.RAW_DATA_FILE and
-                self.additional_raw_data_file_extension is not None and
-                len(node_name) > 0):
-            if not re.search(
-                    r'%s$' % self.additional_raw_data_file_extension,
-                    node_name):
-                node_name += self.additional_raw_data_file_extension
+        if (
+            header_components[0] == Node.RAW_DATA_FILE
+            and self.additional_raw_data_file_extension is not None
+            and len(node_name) > 0
+        ) and not re.search(
+            f'{self.additional_raw_data_file_extension}$', node_name
+        ):
+            node_name += self.additional_raw_data_file_extension
 
+        is_new = True
         if (header_components[0] in Node.ASSAYS |
             {Node.SAMPLE, Node.SOURCE, Node.EXTRACT, Node.LABELED_EXTRACT,
              Node.DATA_TRANSFORMATION, Node.NORMALIZATION} and
                 len(node_name) > 0) or \
-                (header_components[0] in Node.FILES and len(node_name) > 0):
-            if header_components[0] in {Node.SAMPLE, Node.SOURCE}:
-                node, is_new = Node.objects.get_or_create(
+                    (header_components[0] in Node.FILES and len(node_name) > 0):
+            node, is_new = (
+                Node.objects.get_or_create(
                     study=self._current_study,
                     type=header_components[0],
-                    name=node_name)
-            else:
-                node, is_new = Node.objects.get_or_create(
+                    name=node_name,
+                )
+                if header_components[0] in {Node.SAMPLE, Node.SOURCE}
+                else Node.objects.get_or_create(
                     study=self._current_study,
                     assay=self._current_assay,
                     type=header_components[0],
-                    name=node_name)
+                    name=node_name,
+                )
+            )
             # this node represents a file - add the file to the file store and
             # store the file UUID in the node
             if (is_new and
@@ -333,15 +331,14 @@ class IsaTabParser:
                 logger.info("New node %s created", str(node))
             else:
                 logger.info("Node %s retrieved", str(node))
+        elif len(node_name) > 0:
+            node = Node.objects.create(study=self._current_study,
+                                       assay=self._current_assay,
+                                       type=header_components[0],
+                                       name=node_name)
         else:
-            if len(node_name) > 0:
-                node = Node.objects.create(study=self._current_study,
-                                           assay=self._current_assay,
-                                           type=header_components[0],
-                                           name=node_name)
-            else:
-                # do not create empty nodes!
-                node = None
+            # do not create empty nodes!
+            node = None
 
         self._current_node = node
 
@@ -355,30 +352,23 @@ class IsaTabParser:
                 node.parents.add(self._previous_node)
                 node.save()
                 self._previous_node.save()
-        else:
-            # TODO: look up parent nodes in DB
-            pass
-
         # remove the node from the row
         row.popleft()
 
         # read until we hit the next node
         while len(row) > 0 and not self.is_node(headers[-len(row)]):
-            if self._current_node is not None:
-                if self.is_attribute(headers[-len(row)]):
-                    self._parse_attribute(headers, row)
-                elif self.is_protocol_reference(headers[-len(row)]):
-                    self._parse_protocol_reference(headers, row)
-                else:
-                    logger.warning(
-                        "Unexpected element `" + headers[-len(row)] + "` when "
-                        "parsing node in line " +
-                        str(self._current_reader.line_num) + ", column " +
-                        str(len(headers) - len(row)) + ".")
-                    row.popleft()
-            else:
+            if self._current_node is None:
                 # node is none, pop until the next node because attributes
                 # can't be attached to anything
+                row.popleft()
+            elif self.is_attribute(headers[-len(row)]):
+                self._parse_attribute(headers, row)
+            elif self.is_protocol_reference(headers[-len(row)]):
+                self._parse_protocol_reference(headers, row)
+            else:
+                logger.warning(
+                    f"Unexpected element `{headers[-len(row)]}` when parsing node in line {str(self._current_reader.line_num)}, column {str(len(headers) - len(row))}."
+                )
                 row.popleft()
         if self._current_node is not None:
             node.save()
@@ -411,12 +401,11 @@ class IsaTabParser:
                     subtype=header_components[1]
             ).count() > 0:
                 has_attribute = True
-        else:
-            if self._current_node.attribute_set.filter(
+        elif self._current_node.attribute_set.filter(
                     type=header_components[0],
                     value=row[0]
             ).count() > 0:
-                has_attribute = True
+            has_attribute = True
         # add attribute if it does not exist yet
         if not has_attribute:
             attribute = Attribute.objects.create(node=self._current_node)
@@ -433,27 +422,27 @@ class IsaTabParser:
         row.popleft()
 
         if self.is_term_information(headers[-len(row)]):
-            if not has_attribute:
-                term_information = self._parse_term_information(headers, row)
-                attribute.value_accession = term_information["accession"]
-                attribute.value_source = term_information["source"]
-            else:
+            if has_attribute:
                 row.popleft()
                 row.popleft()
 
-        if self.is_unit(headers[-len(row)]):
-            if not has_attribute:
-                unit_information = self._parse_unit_information(headers, row)
-                attribute.value_unit = unit_information["unit"]
-                attribute.value_accession = unit_information["accession"]
-                attribute.value_source = unit_information["source"]
             else:
+                term_information = self._parse_term_information(headers, row)
+                attribute.value_accession = term_information["accession"]
+                attribute.value_source = term_information["source"]
+        if self.is_unit(headers[-len(row)]):
+            if has_attribute:
                 row.popleft()
                 if (len(row) > 1 and
                         self.is_term_information(headers[-len(row) + 1])):
                     row.popleft()
                     row.popleft()
 
+            else:
+                unit_information = self._parse_unit_information(headers, row)
+                attribute.value_unit = unit_information["unit"]
+                attribute.value_accession = unit_information["accession"]
+                attribute.value_source = unit_information["source"]
         if not has_attribute:
             # done
             attribute.save()
@@ -464,58 +453,44 @@ class IsaTabParser:
 
     def _parse_protocol_reference(self, headers, row):
 
-        if self.is_protocol_reference(headers[-len(row)]):
+        if not self.is_protocol_reference(headers[-len(row)]):
+            return
+        try:
+            protocol = self._current_study.protocol_set.get(name=row[0])
+            # if protocol is None:
+        except:
+            if not self.ignore_missing_protocols:
+                raise ParserException(
+                    f"Undeclared protocol {row[0]} when parsing term protocol in line {self._current_reader.line_num}, column {len(headers) - len(row)}. An attempt to create this protocol failed."
+                )
 
-            try:
-                protocol = self._current_study.protocol_set.get(name=row[0])
-                # if protocol is None:
-            except:
-                if self.ignore_missing_protocols:
-                    protocol, is_created = Protocol.objects.get_or_create(
-                        name=row[0],
-                        study=self._current_study)
-                    logger.info(
-                        "Undeclared protocol " + row[0] + " when parsing term "
-                        "protocol in line " +
-                        str(self._current_reader.line_num) + ", column " +
-                        str(len(headers) - len(row)) + "." + " This protocol "
-                        "was created since the parser is being run with "
-                        "ignore_missing_protocols = True.")
-                else:
-                    raise ParserException(
-                        "Undeclared protocol {} when parsing term "
-                        "protocol in line {}, column {}. An attempt to "
-                        "create this protocol failed.".format(
-                            row[0],
-                            self._current_reader.line_num,
-                            len(headers) - len(row)
-                        )
-                    )
+            protocol, is_created = Protocol.objects.get_or_create(
+                name=row[0],
+                study=self._current_study)
+            logger.info(
+                f"Undeclared protocol {row[0]} when parsing term protocol in line {str(self._current_reader.line_num)}, column {str(len(headers) - len(row))}. This protocol was created since the parser is being run with ignore_missing_protocols = True."
+            )
+        protocol_reference = ProtocolReference.objects.create(
+            node=self._current_node,
+            protocol=protocol)
+        self._current_protocol_reference = protocol_reference
 
-            protocol_reference = ProtocolReference.objects.create(
-                node=self._current_node,
-                protocol=protocol)
-            self._current_protocol_reference = protocol_reference
+        row.popleft()
 
-            row.popleft()
-
-            while self.is_protocol_reference_information(headers[-len(row)]):
+        while self.is_protocol_reference_information(headers[-len(row)]):
                 # TODO: handle comments
-                if self.is_protocol_reference_parameter(headers[-len(row)]):
-                    self._parse_protocol_reference_parameter(headers, row)
-                elif self.is_protocol_reference_performer(headers[-len(row)]):
-                    protocol_reference.performer = row[0]
-                    row.popleft()
-                    # TODO: lookup performer uuid from user database
-                elif self.is_protocol_reference_date(headers[-len(row)]):
-                    protocol_reference.date = row[0]
-                    row.popleft()
-                    # TODO: lookup performer uuid from user database
-                else:
-                    pass
-
-            protocol_reference.save()
-            return protocol_reference
+            if self.is_protocol_reference_parameter(headers[-len(row)]):
+                self._parse_protocol_reference_parameter(headers, row)
+            elif self.is_protocol_reference_performer(headers[-len(row)]):
+                protocol_reference.performer = row[0]
+                row.popleft()
+                # TODO: lookup performer uuid from user database
+            elif self.is_protocol_reference_date(headers[-len(row)]):
+                protocol_reference.date = row[0]
+                row.popleft()
+                # TODO: lookup performer uuid from user database
+        protocol_reference.save()
+        return protocol_reference
 
     def _parse_protocol_reference_parameter(self, headers, row):
         header_components = self._split_header(headers[-len(row)])
@@ -557,21 +532,13 @@ class IsaTabParser:
         if self.is_term_accession(headers[-len(row)]):
             accession = row[0]
             row.popleft()
-            # parse the second component (if strict, this should be the
-            # ontology reference)
-            if self.is_term_source(headers[-len(row)]):
-                source = row[0]
-                row.popleft()
-                return {"accession": accession, "source": source}
-            else:
+            if not self.is_term_source(headers[-len(row)]):
                 raise ParserException(
-                    "Unexpected element {} when "
-                    "parsing term information in line {} , column {}.".format(
-                        headers[-len(row)],
-                        self._current_reader.line_num,
-                        len(headers) - len(row)
-                    )
+                    f"Unexpected element {headers[-len(row)]} when parsing term information in line {self._current_reader.line_num} , column {len(headers) - len(row)}."
                 )
+            source = row[0]
+            row.popleft()
+            return {"accession": accession, "source": source}
         elif self.is_term_source(headers[-len(row)]):
             source = row[0]
             row.popleft()
@@ -583,47 +550,28 @@ class IsaTabParser:
                 return {"accession": accession, "source": source}
             else:
                 raise ParserException(
-                    "Unexpected element {} when "
-                    "parsing term information in line {} , column {}.".format(
-                        headers[-len(row)],
-                        self._current_reader.line_num,
-                        len(headers) - len(row)
-                    )
+                    f"Unexpected element {headers[-len(row)]} when parsing term information in line {self._current_reader.line_num} , column {len(headers) - len(row)}."
                 )
         else:
             raise ParserException(
-                "Unexpected element {} when "
-                "parsing term information in line {} , column {}.".format(
-                    headers[-len(row)],
-                    self._current_reader.line_num,
-                    len(headers) - len(row)
-                )
+                f"Unexpected element {headers[-len(row)]} when parsing term information in line {self._current_reader.line_num} , column {len(headers) - len(row)}."
             )
 
     def _parse_unit_information(self, headers, row):
         """Parses a term_accession, term_source pair
         Currently does not enforce any specific order.
         """
-        # parse the first component (unit name)
-        if self.is_unit(headers[-len(row)]):
-            unit = row[0]
-            row.popleft()
-        else:
+        if not self.is_unit(headers[-len(row)]):
             raise ParserException(
-                "Unexpected element {} when "
-                "parsing unit information in line {} , column {}.".format(
-                    headers[-len(row)],
-                    self._current_reader.line_num,
-                    len(headers) - len(row)
-                )
+                f"Unexpected element {headers[-len(row)]} when parsing unit information in line {self._current_reader.line_num} , column {len(headers) - len(row)}."
             )
+        unit = row[0]
+        row.popleft()
         # parse term information if available
         if self.is_term_information(headers[-len(row)]):
             term_information = self._parse_term_information(headers, row)
         else:
-            term_information = {}
-            term_information["accession"] = None
-            term_information["source"] = None
+            term_information = {"accession": None, "source": None}
         return {
             "unit": unit,
             "accession": term_information["accession"],
@@ -673,8 +621,7 @@ class IsaTabParser:
         # 1. determine length of field with most number of columns
         columns = -1
         for key in fields:
-            if columns < len(fields[key]):
-                columns = len(fields[key])
+            columns = max(columns, len(fields[key]))
         # 2. pad all field arrays to have the length of the longest field array
         # in many cases all fields will have the same length, but only if the
         # author put in enough tabs in all columns
@@ -694,17 +641,20 @@ class IsaTabParser:
                     section["fields"])[self._adjust_string_case(field_name)]
                 model_parameters[parameter_name] = fields[field_name][column]
             # test if any field has a non-empty string in it
-            if len([fields[key][column]
-                    for key in fields
-                    if fields[key][column].strip() != ""]) == 0:
+            if not [
+                fields[key][column]
+                for key in fields
+                if fields[key][column].strip() != ""
+            ]:
                 logger.info(
-                    "Column " + str(column) + " in section " + section_title +
-                    " has no non-empty cells and was ignored.")
+                    f"Column {str(column)} in section {section_title} has no non-empty cells and was ignored."
+                )
                 # for all section but INVESTIGATION and STUDY continue)
-                if not (section_title == "INVESTIGATION" and
-                        self._current_investigation is None) or (
-                            section_title == "STUDY" and
-                            self._current_study is None):
+                if (
+                    section_title != "INVESTIGATION"
+                    or self._current_investigation is not None
+                    or (section_title == "STUDY" and self._current_study is None)
+                ):
                     continue
             # if necessary enrich model parameters with required foreign key
             # references
@@ -713,12 +663,9 @@ class IsaTabParser:
                     parameter_name = section["references"][reference_name]
                     if reference_name == "current_investigation":
                         model_parameters[parameter_name] = \
-                            self._current_investigation
+                                self._current_investigation
                     elif reference_name == "current_study":
                         model_parameters[parameter_name] = self._current_study
-                    else:
-                        pass
-                        # TODO: log error referring to unknown reference_name
             # create model
             if section_title != "ONTOLOGY SOURCE REFERENCE":
                 model_instance = model_class.objects.create(**model_parameters)
@@ -729,10 +676,9 @@ class IsaTabParser:
                     self._current_study = model_instance
         # create an investigation even if no information is provided
         # (all fields empty, no tab after any field name)
-        if columns == 0:
-            if section_title == "INVESTIGATION":
-                model_instance = Investigation.objects.create()
-                self._current_investigation = model_instance
+        if columns == 0 and section_title == "INVESTIGATION":
+            model_instance = Investigation.objects.create()
+            self._current_investigation = model_instance
 
     # parse an investigation section
     def _parse_investigation_file_section(self, section_title):
@@ -781,7 +727,7 @@ class IsaTabParser:
                 # return the next section title
                 return columns[0].strip()
             elif self._adjust_string_case(columns[0].strip()) in \
-                    self._adjust_list_case(section["fields"]):
+                        self._adjust_list_case(section["fields"]):
                 # a section field was found, split row, trim white space and
                 # save in field dictionary
                 field_name = columns[0].strip()
@@ -801,7 +747,7 @@ class IsaTabParser:
                            self.is_multiline_start(columns[-1])):
                         multiline_field = columns[-1]
                         multiline_field_remainder, columns = \
-                            self._parse_investigation_multiline_field()
+                                self._parse_investigation_multiline_field()
                         multiline_field += multiline_field_remainder
 
                         fields[field_name].append(
@@ -828,9 +774,23 @@ class IsaTabParser:
             else:
                 # undefined field, ignore
                 logger.warning(
-                    "Undefined field " + str(columns[0]) +
-                    " found in column 1 when parsing \"" +
-                    section_title + "\" from " + self._current_file_name + ".")
+                    (
+                        (
+                            (
+                                (
+                                    (
+                                        f"Undefined field {str(columns[0])}"
+                                        + " found in column 1 when parsing \""
+                                    )
+                                    + section_title
+                                )
+                                + "\" from "
+                            )
+                            + self._current_file_name
+                        )
+                        + "."
+                    )
+                )
 
     # returns lines 2-n of the multiline field (concatenated) and the remaining
     # columns in line n
@@ -901,15 +861,23 @@ class IsaTabParser:
             else:
                 # undefined field, ignore
                 logger.warning(
-                    "Field " + str(columns[0].strip()) + " found in column 1 "
-                    "before section when parsing " +
-                    self._current_file_name + "."
+                    (
+                        (
+                            (
+                                f"Field {str(columns[0].strip())}"
+                                + " found in column 1 "
+                                "before section when parsing "
+                            )
+                            + self._current_file_name
+                        )
+                        + "."
+                    )
                 )
 
         # parse the sections
         while True:
             section_title = \
-                self._parse_investigation_file_section(section_title)
+                    self._parse_investigation_file_section(section_title)
 
             if section_title is None:
                 return
@@ -965,7 +933,7 @@ class IsaTabParser:
                 )
         # 2. identify investigation file
         try:
-            investigation_file_name = glob.glob("%s/i*.txt" % path).pop()
+            investigation_file_name = glob.glob(f"{path}/i*.txt").pop()
         except IndexError as exception:
             raise ParserException(
                 "Unable to identify ISArchive file in {!r} {}.".format(
@@ -976,27 +944,25 @@ class IsaTabParser:
         # 3. parse investigation file and identify study files and
         # corresponding assay files
         self._parse_investigation_file(investigation_file_name)
-        # 4. parse all study files and corresponding assay files
-        if self._current_investigation is not None:
-            # identify studies associated with this investigation
-            for study in self._current_investigation.study_set.all():
-                # parse study file
-                self._current_assay = None
-                study_file_name = os.path.join(path, study.file_name)
-                if fix_last_column(study_file_name):
-                    self._parse_study_file(study, study_file_name)
-                    for assay in study.assay_set.all():
-                        # parse assay file
-                        self._previous_node = None
-                        assay_file_name = os.path.join(path, assay.file_name)
-                        if fix_last_column(assay_file_name):
-                            self._parse_assay_file(study, assay,
-                                                   assay_file_name)
-        else:
+        if self._current_investigation is None:
             raise ParserException(
                 "No investigation was identified when parsing investigation "
                 "file \"" + investigation_file_name + "\""
             )
+        # identify studies associated with this investigation
+        for study in self._current_investigation.study_set.all():
+            # parse study file
+            self._current_assay = None
+            study_file_name = os.path.join(path, study.file_name)
+            if fix_last_column(study_file_name):
+                self._parse_study_file(study, study_file_name)
+                for assay in study.assay_set.all():
+                    # parse assay file
+                    self._previous_node = None
+                    assay_file_name = os.path.join(path, assay.file_name)
+                    if fix_last_column(assay_file_name):
+                        self._parse_assay_file(study, assay,
+                                               assay_file_name)
         # 5. assign ISA-Tab archive and pre-ISA-Tab archive if present
         if isa_archive:
             file_store_item = FileStoreItem.objects.create(source=isa_archive)
@@ -1015,9 +981,9 @@ class IsaTabParser:
 
         if preisa_archive:
             file_store_item = \
-                FileStoreItem.objects.create(source=preisa_archive)
+                    FileStoreItem.objects.create(source=preisa_archive)
             self._current_investigation.pre_isarchive_file = \
-                file_store_item.uuid
+                    file_store_item.uuid
             try:
                 with open(isa_archive, 'rb') as preisa_archive_obj:
                     file_store_item.datafile.save(
@@ -1035,14 +1001,8 @@ class IsaTabParser:
 
     # Utility Functions
     def is_multiline_start(self, string):
-        start_quote = False
-        end_quote = False
-
-        if string.startswith("\"") and not string.startswith("\"\"\""):
-            start_quote = True
-        if string.endswith("\"") and not string.endswith("\"\"\""):
-            end_quote = True
-
+        start_quote = bool(string.startswith("\"") and not string.startswith("\"\"\""))
+        end_quote = bool(string.endswith("\"") and not string.endswith("\"\"\""))
         # line that only contains a quote
         if len(string.strip()) == 1 and (start_quote or end_quote):
             return True
@@ -1050,14 +1010,8 @@ class IsaTabParser:
         return start_quote and (start_quote and not end_quote)
 
     def is_multiline_end(self, string):
-        start_quote = False
-        end_quote = False
-
-        if string.startswith("\"") and not string.startswith("\"\"\""):
-            start_quote = True
-        if string.endswith("\"") and not string.endswith("\"\"\""):
-            end_quote = True
-
+        start_quote = bool(string.startswith("\"") and not string.startswith("\"\"\""))
+        end_quote = bool(string.endswith("\"") and not string.endswith("\"\"\""))
         # line that only contains a quote
         if len(string) == 1 and (start_quote or end_quote):
             return True
@@ -1153,7 +1107,7 @@ class IsaTabParser:
 
         # 2. identify investigation file
         try:
-            investigation_file_name = glob.glob("%s/i*.txt" % path).pop()
+            investigation_file_name = glob.glob(f"{path}/i*.txt").pop()
         except IndexError:
             raise ParserException(
                 "Unable to identify ISArchive file in {!r}.".format(path)
@@ -1172,33 +1126,33 @@ class IsaTabParser:
             for line in f:
                 line = line.strip('\n')
                 if not identifier and \
-                   investigation_id and \
-                   line.startswith("Investigation Identifier"):
+                       investigation_id and \
+                       line.startswith("Investigation Identifier"):
                     try:
                         identifier = line.split('\t')[1].strip(' "')
                     except IndexError:
                         pass
                     investigation_id = False
                 if not identifier and \
-                   not investigation_id and \
-                   study_id and \
-                   line.startswith("Study Identifier"):
+                       not investigation_id and \
+                       study_id and \
+                       line.startswith("Study Identifier"):
                     try:
                         identifier = line.split('\t')[1].strip(' "')
                     except IndexError:
                         pass
                     study_id = False
                 if not title and \
-                   investigation_title and \
-                   line.startswith("Investigation Title"):
+                       investigation_title and \
+                       line.startswith("Investigation Title"):
                     try:
                         title = line.split('\t')[1].strip(' "')
                     except IndexError:
                         pass
                     investigation_title = False
                 if not title and \
-                   not investigation_title and \
-                   line.startswith("Study Title"):
+                       not investigation_title and \
+                       line.startswith("Study Title"):
                     try:
                         title = line.split('\t')[1].strip(' "')
                     except IndexError:
@@ -1217,23 +1171,17 @@ class IsaTabParser:
         """Returns a lowercase copy of string if the parser has
         ignore_case set to True, otherwise string will be returned.
         """
-        if self.ignore_case:
-            return string.lower()
-        return string
+        return string.lower() if self.ignore_case else string
 
     def _adjust_list_case(self, list):
         """Returns a copy of list with all lowercase entries if the parser has
         ignore_case set to True, otherwise list will be returned.
         """
-        if self.ignore_case:
-            return [s.lower() for s in list]
-        return list
+        return [s.lower() for s in list] if self.ignore_case else list
 
     def _adjust_dict_case(self, dict):
         """Returns a copy of dict with all lowercase keys if the parser has
         ignore_case set to True, otherwise dict will be returned. Use
         with _adjust_string_case to do a case insensitive lookup
         """
-        if self.ignore_case:
-            return {k.lower(): dict[k] for k in dict}
-        return dict
+        return {k.lower(): dict[k] for k in dict} if self.ignore_case else dict

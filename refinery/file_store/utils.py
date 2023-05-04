@@ -74,7 +74,7 @@ class SymlinkedFileSystemStorage(FileSystemStorage):
         name = os.path.normpath(name)
         # create a hashed directory structure
         hashcode = hashlib.md5(name.encode('utf-8')).hexdigest()
-        dir1 = hashcode[0:2]
+        dir1 = hashcode[:2]
         dir2 = hashcode[2:4]
         # remove leading '-' characters to make file management easier
         # limit file name length to 255 to make "fully portable" in POSIX
@@ -180,8 +180,9 @@ def move_file(source_path, destination_path):
     try:
         shutil.move(source_path, destination_path)
     except EnvironmentError as exc:
-        raise RuntimeError("Error moving '{}' to '{}': {}".format(
-                           source_path, destination_path, exc))
+        raise RuntimeError(
+            f"Error moving '{source_path}' to '{destination_path}': {exc}"
+        )
     # temp files are only accessible by the owner by default which prevents
     # access by the web server if it is running as its own user
     try:
@@ -205,15 +206,12 @@ def parse_s3_url(url):
 def symlink_file(source_path, link_path):
     """Create a symlink link_path to source_path"""
     if not os.path.isfile(source_path):
-        raise RuntimeError(
-            "Error creating symlink to '{}': not a file".format(source_path)
-        )
+        raise RuntimeError(f"Error creating symlink to '{source_path}': not a file")
     make_dir(os.path.dirname(link_path))
     try:
         os.symlink(source_path, link_path)
     except EnvironmentError as exc:
-        raise RuntimeError("Error creating symlink '{}': {}".format(
-            link_path, exc))
+        raise RuntimeError(f"Error creating symlink '{link_path}': {exc}")
     logger.info("Created symlink '%s' to '%s'", link_path, source_path)
 
 

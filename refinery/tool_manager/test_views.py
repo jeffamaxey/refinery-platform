@@ -29,22 +29,18 @@ class ToolDefinitionAPITests(ToolManagerTestBase, APITestCase):
         super(ToolDefinitionAPITests, self).setUp()
 
         # Make some sample data
-        with open(
-            "{}/visualizations/hello_world.json".format(TEST_DATA_PATH)
-        ) as f:
+        with open(f"{TEST_DATA_PATH}/visualizations/hello_world.json") as f:
             tool_annotation = json.loads(f.read())
             create_tool_definition(tool_annotation)
-        with open("{}/workflows/LIST.json".format(TEST_DATA_PATH)) as f:
+        with open(f"{TEST_DATA_PATH}/workflows/LIST.json") as f:
             tool_annotation = json.loads(f.read())
             tool_annotation["workflow_engine_uuid"] = self.workflow_engine.uuid
             create_tool_definition(tool_annotation)
-        with open("{}/workflows/LIST:PAIR.json".format(TEST_DATA_PATH)) as f:
+        with open(f"{TEST_DATA_PATH}/workflows/LIST:PAIR.json") as f:
             tool_annotation = json.loads(f.read())
             tool_annotation["workflow_engine_uuid"] = self.workflow_engine.uuid
             create_tool_definition(tool_annotation)
-        with open(
-            "{}/workflows/LIST:LIST:PAIR.json".format(TEST_DATA_PATH)
-        ) as f:
+        with open(f"{TEST_DATA_PATH}/workflows/LIST:LIST:PAIR.json") as f:
             tool_annotation = json.loads(f.read())
             tool_annotation["workflow_engine_uuid"] = self.workflow_engine.uuid
             create_tool_definition(tool_annotation)
@@ -57,10 +53,7 @@ class ToolDefinitionAPITests(ToolManagerTestBase, APITestCase):
 
         # Make reusable requests & responses
         self.get_request = self.factory.get(
-            "{}?data_set_uuid={}".format(
-                self.tool_defs_url_root,
-                self.dataset.uuid
-            )
+            f"{self.tool_defs_url_root}?data_set_uuid={self.dataset.uuid}"
         )
         force_authenticate(self.get_request, self.user)
         self.get_response = self.tool_defs_view(self.get_request)
@@ -157,10 +150,7 @@ class ToolDefinitionAPITests(ToolManagerTestBase, APITestCase):
 
     def test_request_from_public_dataset_shows_vis_tools_only(self):
         get_request = self.factory.get(
-            "{}?data_set_uuid={}".format(
-                self.tool_defs_url_root,
-                self.public_dataset.uuid
-            )
+            f"{self.tool_defs_url_root}?data_set_uuid={self.public_dataset.uuid}"
         )
         force_authenticate(get_request, self.user)
         get_response = self.tool_defs_view(get_request)
@@ -179,10 +169,7 @@ class ToolDefinitionAPITests(ToolManagerTestBase, APITestCase):
         dataset_uuid = str(uuid.uuid4())
 
         get_request = self.factory.get(
-            "{}?data_set_uuid={}".format(
-                self.tool_defs_url_root,
-                dataset_uuid
-            )
+            f"{self.tool_defs_url_root}?data_set_uuid={dataset_uuid}"
         )
         force_authenticate(get_request, self.user)
         get_response = self.tool_defs_view(get_request)
@@ -421,10 +408,8 @@ class ToolAPITests(APITestCase, ToolManagerTestBase):
         )
         self.assertEqual(get_response.status_code, 403)
         self.assertIn(
-            "User: {} does not have permission to view {}: {}".format(
-                self.user.username, self.tool.name, self.tool.uuid
-            ),
-            str(get_response.content)
+            f"User: {self.user.username} does not have permission to view {self.tool.name}: {self.tool.uuid}",
+            str(get_response.content),
         )
 
     def test_relaunch_failure_tool_already_running(self):
@@ -468,7 +453,7 @@ class ToolAPITests(APITestCase, ToolManagerTestBase):
             'uuid': self.tool.uuid
         }
 
-        for key in expected_response_fields.keys():
+        for key in expected_response_fields:
             self.assertEqual(
                 dict(self.get_response.data[0])[key],
                 expected_response_fields[key]
@@ -476,7 +461,7 @@ class ToolAPITests(APITestCase, ToolManagerTestBase):
 
     def test_vis_tools_returned_are_from_a_single_dataset(self):
         vis_tools_to_create = 3
-        for i in range(vis_tools_to_create):
+        for _ in range(vis_tools_to_create):
             self.create_tool(ToolDefinition.VISUALIZATION,
                              create_unique_name=True)
 
@@ -496,7 +481,7 @@ class ToolAPITests(APITestCase, ToolManagerTestBase):
         )
 
     def _create_workflow_and_vis_tools(self, number_to_create=2):
-        for i in range(number_to_create):
+        for _ in range(number_to_create):
             self.create_tool(ToolDefinition.VISUALIZATION,
                              create_unique_name=True)
             self.create_tool(ToolDefinition.WORKFLOW,
@@ -544,9 +529,7 @@ class ToolAPITests(APITestCase, ToolManagerTestBase):
                           password=temp_password)
 
         with mock.patch.object(VisualizationTool, "launch") as launch_mock:
-            get_response = self.client.get(
-                "{}/".format(self.tool.get_relative_container_url())
-            )
+            get_response = self.client.get(f"{self.tool.get_relative_container_url()}/")
         if user_has_permission:
             self.assertTrue(launch_mock.called)
         else:
@@ -600,10 +583,8 @@ class ToolAPITests(APITestCase, ToolManagerTestBase):
         self.post_response = self.tools_view(self.post_request)
         self.assertEqual(self.post_response.status_code, 400)
         self.assertEqual(
-            "A Tool already exists with a display_name of: '{}'".format(
-                display_name
-            ).encode(),
-            self.post_response.content
+            f"A Tool already exists with a display_name of: '{display_name}'".encode(),
+            self.post_response.content,
         )
 
     def test_vis_tool_deletion(self):

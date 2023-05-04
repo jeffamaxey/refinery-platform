@@ -74,8 +74,7 @@ class AnalysisDeletionTest(TestCase):
         self.assertEqual(AnalysisStatus.objects.count(), 0)
 
         # analysis deletion should only remove derived Nodes
-        total_dataset_nodes = \
-            sum([d.get_nodes().count() for d in DataSet.objects.all()])
+        total_dataset_nodes = sum(d.get_nodes().count() for d in DataSet.objects.all())
         total_nodes = Node.objects.count()
 
         self.assertGreater(total_dataset_nodes, 0)
@@ -102,8 +101,7 @@ class AnalysisDeletionTest(TestCase):
         self.assertEqual(AnalysisStatus.objects.count(), 0)
 
         # analysis deletion should only remove derived Nodes
-        total_dataset_nodes = \
-            sum([d.get_nodes().count() for d in DataSet.objects.all()])
+        total_dataset_nodes = sum(d.get_nodes().count() for d in DataSet.objects.all())
         total_nodes = Node.objects.count()
 
         self.assertGreater(total_dataset_nodes, 0)
@@ -180,29 +178,27 @@ class AnalysisTests(TestCase):
             analysis_uuid=self.analysis_with_node_analyzed_further.uuid,
             file_item=self.file_store_item1
         )
-        self.node_filename = "{}.{}".format(
-            self.node.name, self.node.file_item.get_extension()
-        )
+        self.node_filename = f"{self.node.name}.{self.node.file_item.get_extension()}"
         self.analysis_node_connection_a = \
-            AnalysisNodeConnection.objects.create(
+                AnalysisNodeConnection.objects.create(
                 analysis=self.analysis, node=self.node, step=1,
                 filename=self.node_filename, direction=OUTPUT_CONNECTION,
                 is_refinery_file=True, galaxy_dataset_name='Galaxy File Name'
             )
         self.analysis_node_connection_b = \
-            AnalysisNodeConnection.objects.create(analysis=self.analysis,
+                AnalysisNodeConnection.objects.create(analysis=self.analysis,
                                                   node=self.node, step=2,
                                                   filename=self.node_filename,
                                                   direction=OUTPUT_CONNECTION,
                                                   is_refinery_file=False)
         self.analysis_node_connection_c = \
-            AnalysisNodeConnection.objects.create(analysis=self.analysis,
+                AnalysisNodeConnection.objects.create(analysis=self.analysis,
                                                   node=self.node, step=3,
                                                   filename=self.node_filename,
                                                   direction=OUTPUT_CONNECTION,
                                                   is_refinery_file=True)
         self.analysis_node_connection_with_node_analyzed_further = \
-            AnalysisNodeConnection.objects.create(
+                AnalysisNodeConnection.objects.create(
                 analysis=self.analysis_with_node_analyzed_further,
                 node=self.node2, step=0, direction=INPUT_CONNECTION
             )
@@ -307,15 +303,13 @@ class AnalysisTests(TestCase):
     def test_analysis_node_connection_input_id(self):
         self.assertEqual(
             self.analysis_node_connection_a.get_input_connection_id(),
-            '{}_{}'.format(self.analysis_node_connection_a.step,
-                           self.analysis_node_connection_a.filename)
+            f'{self.analysis_node_connection_a.step}_{self.analysis_node_connection_a.filename}',
         )
 
     def test_analysis_node_connection_output_id(self):
         self.assertEqual(
             self.analysis_node_connection_a.get_output_connection_id(),
-            '{}_{}'.format(self.analysis_node_connection_a.step,
-                           self.analysis_node_connection_a.name)
+            f'{self.analysis_node_connection_a.step}_{self.analysis_node_connection_a.name}',
         )
 
     def test_attach_outputs_downloads_no_file(self):
@@ -781,7 +775,7 @@ class EventTests(TestCase):
         self.assertEqual(len(events), 1)
         self.assertRegex(
             str(events[0]),
-            self.pre_re + 'created data set Test DataSet - [0-9a-f-]+$'
+            f'{self.pre_re}created data set Test DataSet - [0-9a-f-]+$',
         )
 
     # DataSetPermissionsUpdateTests covers data_set_permissions_change.
@@ -800,10 +794,7 @@ class EventTests(TestCase):
 
         events = Event.objects.all()
         self.assertEqual(len(events), 2)
-        self.assertRegex(
-            str(events[0]),
-            self.pre_re + r'created' + self.post_re
-        )
+        self.assertRegex(str(events[0]), f'{self.pre_re}created{self.post_re}')
         self.assertRegex(
             str(events[1]),
             self.pre_re +
@@ -819,10 +810,7 @@ class EventTests(TestCase):
 
         events = Event.objects.all()
         self.assertEqual(len(events), 2)
-        self.assertRegex(
-            str(events[0]),
-            self.pre_re + 'created' + self.post_re
-        )
+        self.assertRegex(str(events[0]), f'{self.pre_re}created{self.post_re}')
         self.assertRegex(
             str(events[1]),
             self.pre_re +
@@ -1282,8 +1270,7 @@ class UserProfileTest(TestCase):
         self.userprofile.user.save()
         self.assertEqual(
             str(self.userprofile),
-            "élan göld (" + self.userprofile.affiliation + "): " +
-            self.user.email
+            f"élan göld ({self.userprofile.affiliation}): {self.user.email}",
         )
 
 

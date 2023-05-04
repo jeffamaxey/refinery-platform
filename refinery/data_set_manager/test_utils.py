@@ -477,8 +477,9 @@ class UtilitiesTests(TestCase):
 
     def test_generate_solr_params_no_params_returns_json_filter(self):
         query = generate_solr_params_for_assay(QueryDict({}), self.valid_uuid)
-        self.assertListEqual(query['json']['filter'],
-                             ['assay_uuid:({})'.format(self.valid_uuid)])
+        self.assertListEqual(
+            query['json']['filter'], [f'assay_uuid:({self.valid_uuid})']
+        )
 
     def test_generate_solr_params_no_params_returns_json_query(self):
         query = generate_solr_params_for_assay(QueryDict({}), self.valid_uuid)
@@ -542,8 +543,9 @@ class UtilitiesTests(TestCase):
         parameter_qdict.update(parameter_dict)
         query = generate_solr_params_for_assay(parameter_qdict,
                                                self.valid_uuid)
-        self.assertListEqual(query['json']['filter'],
-                             ['assay_uuid:({})'.format(self.valid_uuid)])
+        self.assertListEqual(
+            query['json']['filter'], [f'assay_uuid:({self.valid_uuid})']
+        )
 
     def test_generate_solr_params_params_returns_json_query(self):
         parameter_dict = {'limit': 7, 'offset': 2,
@@ -1164,13 +1166,13 @@ class UtilitiesTests(TestCase):
             {
                 "json": {
                     "query": "django_ct:data_set_manager.node",
-                    "filter": "uuid:({})".format(" OR ".join(fake_node_uuids))
+                    "filter": f'uuid:({" OR ".join(fake_node_uuids)})',
                 },
                 "params": {
                     "wt": "json",
-                    "rows": constants.REFINERY_SOLR_DOC_LIMIT
-                }
-            }
+                    "rows": constants.REFINERY_SOLR_DOC_LIMIT,
+                },
+            },
         )
 
     def test_update_annotated_nodes(self):
@@ -1220,9 +1222,7 @@ class UtilitiesTests(TestCase):
         )
         self.assertEqual(
             existing_data_set.get_latest_investigation_link().message,
-            "Metadata Revision: for {}".format(
-                new_data_set.get_investigation().title
-            )
+            f"Metadata Revision: for {new_data_set.get_investigation().title}",
         )
 
     def test_get_first_annotated_node_from_solr_name_characteristic(self):
@@ -1232,8 +1232,7 @@ class UtilitiesTests(TestCase):
         annotated_node = AnnotatedNode.objects.filter(
             node=node, attribute_subtype='organism'
         )[0]
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         first_node = get_first_annotated_node_from_solr_name(solr_name, node)
         self.assertEqual(annotated_node, first_node)
 
@@ -1247,7 +1246,7 @@ class UtilitiesTests(TestCase):
         annotated_node = AnnotatedNode.objects.filter(
             node=node, attribute_subtype=None, attribute_type='Label'
         )[0]
-        solr_name = '{}_652_326_s'.format(annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_type}_652_326_s'
         first_node = get_first_annotated_node_from_solr_name(solr_name, node)
         self.assertEqual(annotated_node, first_node)
 
@@ -1261,7 +1260,7 @@ class UtilitiesTests(TestCase):
         annotated_node = AnnotatedNode.objects.filter(
             node=node, attribute_subtype=None, attribute_type='Material Type'
         )[0]
-        solr_name = '{}_652_326_s'.format('Material_Type')
+        solr_name = 'Material_Type_652_326_s'
         first_node = get_first_annotated_node_from_solr_name(solr_name, node)
         self.assertEqual(annotated_node, first_node)
 
@@ -1276,9 +1275,7 @@ class UtilitiesTests(TestCase):
             node=node, attribute_subtype='culture medium',
             attribute_type='Factor Value'
         )[0]
-        solr_name = '{}_Factor_Value_652_326_s'.format(
-            annotated_node.attribute_subtype
-        )
+        solr_name = f'{annotated_node.attribute_subtype}_Factor_Value_652_326_s'
         first_node = get_first_annotated_node_from_solr_name(solr_name, node)
         self.assertEqual(annotated_node, first_node)
 
@@ -1293,7 +1290,6 @@ class UtilitiesTests(TestCase):
             node=node, attribute_subtype='Data Record Accession',
             attribute_type='Comment'
         )[0]
-        solr_name = '{}_{}_652_326_s'.format(annotated_node.attribute_subtype,
-                                             annotated_node.attribute_type)
+        solr_name = f'{annotated_node.attribute_subtype}_{annotated_node.attribute_type}_652_326_s'
         first_node = get_first_annotated_node_from_solr_name(solr_name, node)
         self.assertEqual(annotated_node, first_node)

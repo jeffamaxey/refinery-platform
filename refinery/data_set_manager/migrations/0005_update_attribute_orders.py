@@ -12,24 +12,23 @@ def create_missing_attribute_orders(apps, schema_editor):
     attribute_orders_to_create = []
     for investigation in investigation_model.objects.all():
         for study in investigation.study_set.all():
-            for assay in study.assay_set.all():
-                if attribute_order_model.objects.filter(
+            attribute_orders_to_create.extend(
+                attribute_order_model(
                     study=study,
                     assay=assay,
-                    solr_field=NodeIndex.DOWNLOAD_URL
-                ).count() == 0:
-                    attribute_orders_to_create.append(
-                        attribute_order_model(
-                            study=study,
-                            assay=assay,
-                            solr_field=NodeIndex.DOWNLOAD_URL,
-                            rank=0,
-                            is_facet=False,
-                            is_exposed=True,
-                            is_internal=False,
-                            is_active=True
-                        )
-                    )
+                    solr_field=NodeIndex.DOWNLOAD_URL,
+                    rank=0,
+                    is_facet=False,
+                    is_exposed=True,
+                    is_internal=False,
+                    is_active=True,
+                )
+                for assay in study.assay_set.all()
+                if attribute_order_model.objects.filter(
+                    study=study, assay=assay, solr_field=NodeIndex.DOWNLOAD_URL
+                ).count()
+                == 0
+            )
     attribute_order_model.objects.bulk_create(attribute_orders_to_create)
 
 

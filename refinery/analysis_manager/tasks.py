@@ -34,9 +34,7 @@ class AnalysisHandlerTask(Task):
         """Set analysis status to failure in case of errors not handled in the
         monitoring task
         """
-        error_msg = "Monitoring task for analysis with UUID '{}' failed due " \
-                    "to unexpected error: '{}: {}'".format(
-                         args[0], einfo.type, einfo.exception)
+        error_msg = f"Monitoring task for analysis with UUID '{args[0]}' failed due to unexpected error: '{einfo.type}: {einfo.exception}'"
 
         logger.error(error_msg)
         try:
@@ -66,9 +64,7 @@ def _check_galaxy_history_state(analysis_uuid):
         percent_complete = analysis.galaxy_progress()
     except RuntimeError:
         analysis_status.set_galaxy_history_state(AnalysisStatus.ERROR)
-        error_msg = (
-            "Analysis '{}' failed during Galaxy Workflow run".format(analysis)
-        )
+        error_msg = f"Analysis '{analysis}' failed during Galaxy Workflow run"
         logger.error(error_msg)
         analysis.set_status(Analysis.FAILURE_STATUS, error_msg)
         analysis.send_email()
@@ -87,10 +83,10 @@ def _check_galaxy_history_state(analysis_uuid):
         run_analysis.retry(countdown=RETRY_INTERVAL)
     else:
         # workaround to avoid moving the progress bar backward
-        if not analysis_status.galaxy_history_progress:
-            analysis_status.galaxy_history_progress = percent_complete
-            analysis_status.save()
-        elif analysis_status.galaxy_history_progress < percent_complete:
+        if (
+            not analysis_status.galaxy_history_progress
+            or analysis_status.galaxy_history_progress < percent_complete
+        ):
             analysis_status.galaxy_history_progress = percent_complete
             analysis_status.save()
         if percent_complete < 100:
@@ -215,10 +211,8 @@ def _galaxy_file_export(analysis_uuid):
     if not galaxy_export_taskset.ready():
         logger.debug("Results download pending for analysis '%s'", analysis)
         run_analysis.retry(countdown=RETRY_INTERVAL)
-    # all tasks must have succeeded or failed
     elif not galaxy_export_taskset.successful():
-        error_msg = ("Analysis '{}' failed while downloading results "
-                     "from Galaxy".format(analysis))
+        error_msg = f"Analysis '{analysis}' failed while downloading results from Galaxy"
         logger.error(error_msg)
         analysis.set_status(Analysis.FAILURE_STATUS, error_msg)
         analysis.send_email()
@@ -285,8 +279,7 @@ def _refinery_file_import(analysis_uuid):
         run_analysis.retry(countdown=RETRY_INTERVAL)
 
     elif not refinery_import_taskset.successful():
-        error_msg = "Analysis '{}' failed during file import".format(
-            analysis)
+        error_msg = f"Analysis '{analysis}' failed during file import"
         logger.error(error_msg)
         analysis.set_status(Analysis.FAILURE_STATUS, error_msg)
         analysis.send_email()
@@ -355,7 +348,7 @@ def _run_galaxy_file_import(analysis_uuid):
         logger.debug("Analysis '%s' pending in Galaxy", analysis)
         run_analysis.retry(countdown=RETRY_INTERVAL)
     elif not galaxy_file_import_taskset.successful():
-        error_msg = "Analysis '{}' failed in Galaxy".format(analysis)
+        error_msg = f"Analysis '{analysis}' failed in Galaxy"
         logger.error(error_msg)
         analysis.set_status(Analysis.FAILURE_STATUS, error_msg)
         analysis_status.set_galaxy_import_state(AnalysisStatus.ERROR)
@@ -408,7 +401,7 @@ def _run_galaxy_workflow(analysis_uuid):
         run_analysis.retry(countdown=RETRY_INTERVAL)
 
     elif not galaxy_workflow_taskset.successful():
-        error_msg = "Analysis '{}' failed in Galaxy".format(analysis)
+        error_msg = f"Analysis '{analysis}' failed in Galaxy"
         logger.error(error_msg)
         analysis.set_status(Analysis.FAILURE_STATUS, error_msg)
         analysis_status.set_galaxy_history_state(AnalysisStatus.ERROR)
@@ -438,11 +431,11 @@ def _galaxy_file_import(analysis_uuid, file_store_item_uuid, history_dict,
         file_url_absolute = core.utils.\
                         build_absolute_url(file_store_url)
     except ValueError:
-        logger.error('{} is not a relative URL'.format(str(file_store_url)))
+        logger.error(f'{str(file_store_url)} is not a relative URL')
         run_analysis.update_state(state=celery.states.FAILURE)
         return
     except RuntimeError:
-        logger.error('Could not build URL for {}'.format(str(file_store_url)))
+        logger.error(f'Could not build URL for {str(file_store_url)}')
         run_analysis.update_state(state=celery.states.FAILURE)
         return
     library_dataset_dict = tool.upload_datafile_to_library_from_url(
@@ -471,11 +464,10 @@ def _galaxy_file_import(analysis_uuid, file_store_item_uuid, history_dict,
         analysis_status.galaxy_import_progress = 100
         analysis_status.save()
 
-    galaxy_to_refinery_file_mapping = {
+    return {
         tool.REFINERY_FILE_UUID: file_store_item_uuid,
-        tool.GALAXY_DATASET_HISTORY_ID: history_dataset_dict["id"]
+        tool.GALAXY_DATASET_HISTORY_ID: history_dataset_dict["id"],
     }
-    return galaxy_to_refinery_file_mapping
 
 
 def _get_galaxy_download_task_ids(analysis):
@@ -502,15 +494,17 @@ def _get_galaxy_download_task_ids(analysis):
             file_extension = results['file_ext']
             # size of file defined by galaxy
             file_size = results['file_size']
-            file_store_item = FileStoreItem(source=urljoin(
-                galaxy_instance.base_url,
-                "datasets/{}/display?to_ext=txt".format(results['id'])
-            ))
+            file_store_item = FileStoreItem(
+                source=urljoin(
+                    galaxy_instance.base_url,
+                    f"datasets/{results['id']}/display?to_ext=txt",
+                )
+            )
             # workaround to set the correct file type for zip archives of
             # FastQC HTML reports produced by Galaxy dynamically
             if file_extension == 'html':
                 file_extension = 'zip'
-            result_name = "{}.{}".format(results['name'], file_extension)
+            result_name = f"{results['name']}.{file_extension}"
             # assign file type manually since it cannot be inferred from source
             try:
                 extension = FileExtension.objects.get(name=file_extension)

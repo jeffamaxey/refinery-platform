@@ -43,8 +43,8 @@ class ToolDefinitionTests(ToolManagerTestBase):
 
     def test_get_parameters(self):
         self.create_vis_tool_definition(annotation_file_name="igv.json")
-        tool_parameters = [p for p in self.td.get_parameters()]
-        all_parameters = [p for p in Parameter.objects.all()]
+        tool_parameters = list(self.td.get_parameters())
+        all_parameters = list(Parameter.objects.all())
         self.assertEqual(tool_parameters, all_parameters)
 
 

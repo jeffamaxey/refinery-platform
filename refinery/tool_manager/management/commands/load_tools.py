@@ -104,9 +104,7 @@ class Command(BaseCommand):
         ]
         if tool_annotation["name"] in current_tool_definition_names:
             if self.force:
-                self.warn("Forcing deletion of of `{}`".format(
-                    tool_annotation["name"])
-                )
+                self.warn(f'Forcing deletion of of `{tool_annotation["name"]}`')
                 try:
                     tool_defintion = ToolDefinition.objects.get(
                         name=tool_annotation["name"]
@@ -157,16 +155,9 @@ class Command(BaseCommand):
                 response = requests.get(raw_asset_url)
                 if response.status_code != 200:
                     availible_registry_tool_names = \
-                        self._get_available_visualization_tool_registry_names()
+                            self._get_available_visualization_tool_registry_names()
                     raise CommandError(
-                        '"{}" not a local file path and "{}" does not point to'
-                        ' a valid Visualization Tool Registry URL.\n '
-                        'Available Visualization Tools from the '
-                        'Registry ({}) are: {}'.format(
-                            name, raw_asset_url,
-                            settings.REFINERY_VISUALIZATION_REGISTRY,
-                            availible_registry_tool_names
-                        )
+                        f'"{name}" not a local file path and "{raw_asset_url}" does not point to a valid Visualization Tool Registry URL.\n Available Visualization Tools from the Registry ({settings.REFINERY_VISUALIZATION_REGISTRY}) are: {availible_registry_tool_names}'
                     )
                 annotation = response.json()
             visualization_annotations.append(annotation)
@@ -179,9 +170,7 @@ class Command(BaseCommand):
             self._generate_tool_definition(visualization)
 
             self.warn(
-                "Generated ToolDefinition for: Visualization: `{}`".format(
-                    visualization["name"]
-                )
+                f'Generated ToolDefinition for: Visualization: `{visualization["name"]}`'
             )
 
     def _generate_workflows(self):
@@ -204,8 +193,7 @@ class Command(BaseCommand):
                         )
                     except ValueError as e:
                         raise CommandError(
-                            "Workflow: `{}`'s annotation is not "
-                            "valid JSON: {}".format(workflow["name"], e)
+                            f"""Workflow: `{workflow["name"]}`'s annotation is not valid JSON: {e}"""
                         )
 
                 # Include `parameters` key in our workflow annotation
@@ -219,38 +207,24 @@ class Command(BaseCommand):
 
                 if not self._has_workflow_outputs(workflow):
                     raise CommandError(
-                        "Workflow: {} does not have `workflow_outputs` "
-                        "defined. Please follow the instructions here: "
-                        "https://github.com/refinery-platform/"
-                        "refinery-platform/wiki/"
-                        "Annotating-&-Importing-Refinery-Tools"
-                        "#exposing-galaxy-workflow-outputs-to-refinery "
-                        "to expose Workflow outputs to Refinery".format(
-                            workflow["name"]
-                        )
+                        f'Workflow: {workflow["name"]} does not have `workflow_outputs` defined. Please follow the instructions here: https://github.com/refinery-platform/refinery-platform/wiki/Annotating-&-Importing-Refinery-Tools#exposing-galaxy-workflow-outputs-to-refinery to expose Workflow outputs to Refinery'
                     )
 
                 self._generate_tool_definition(workflow)
 
-                self.warn(
-                    "Generated ToolDefinition for Workflow: `{}`"
-                    .format(workflow["name"])
-                )
+                self.warn(f'Generated ToolDefinition for Workflow: `{workflow["name"]}`')
 
     def _get_available_visualization_tool_registry_names(self):
         try:
             response = requests.get(
                 urljoin(
                     settings.REFINERY_VISUALIZATION_REGISTRY,
-                    "tree/{}/tool-annotations".format(
-                        self.visualization_registry_branch
-                    )
+                    f"tree/{self.visualization_registry_branch}/tool-annotations",
                 )
             )
         except requests.exceptions.RequestException as e:
             raise CommandError(
-                "Unable to fetch Visualization Tools from the Registry "
-                "({}): {}".format(settings.REFINERY_VISUALIZATION_REGISTRY, e)
+                f"Unable to fetch Visualization Tools from the Registry ({settings.REFINERY_VISUALIZATION_REGISTRY}): {e}"
             )
         return ', '.join(
             re.findall(r"tool-annotations/(.+?)\.json",  str(response.content))
@@ -313,19 +287,12 @@ class Command(BaseCommand):
                     step_annotation = json.loads(step["annotation"])
                 except ValueError as e:
                     raise CommandError(
-                        "Workflow: `{}`'s Step: {}'s annotation data"
-                        " is not valid JSON: {}".format(
-                            workflow["name"],
-                            step_index,
-                            e
-                        )
+                        f"""Workflow: `{workflow["name"]}`'s Step: {step_index}'s annotation data is not valid JSON: {e}"""
                     )
                 try:
                     validate_workflow_step_annotation(step_annotation)
                 except RuntimeError as e:
-                    raise CommandError(
-                        "{} {}".format(ANNOTATION_ERROR_MESSAGE, e)
-                    )
+                    raise CommandError(f"{ANNOTATION_ERROR_MESSAGE} {e}")
                 try:
                     parameters = step_annotation[ToolDefinition.PARAMETERS]
                 except KeyError:
@@ -333,23 +300,14 @@ class Command(BaseCommand):
                     pass
                 else:
                     for parameter in parameters:
-                        # Check User-defined parameters in
-                        # annotation data against the available
-                        # parameters of the Workflow step's `tool_inputs`
                         if parameter["name"] not in step["tool_inputs"]:
                             raise CommandError(
-                                "{} is not a valid parameter for {}. \n"
-                                "Valid parameters are: {}".format(
-                                    parameter["name"],
-                                    step["tool_id"],
-                                    step["tool_inputs"]
-                                )
+                                f'{parameter["name"]} is not a valid parameter for {step["tool_id"]}. \nValid parameters are: {step["tool_inputs"]}'
                             )
-                        else:
-                            parameter["galaxy_workflow_step"] = int(step_index)
-                            workflow["annotation"][
-                                ToolDefinition.PARAMETERS
-                            ].append(parameter)
+                        parameter["galaxy_workflow_step"] = int(step_index)
+                        workflow["annotation"][
+                            ToolDefinition.PARAMETERS
+                        ].append(parameter)
         return workflow
 
     @staticmethod
@@ -359,14 +317,10 @@ class Command(BaseCommand):
         except RuntimeError as e:
             raise CommandError(e)
         except Exception as e:
-            raise CommandError(
-                "Something unexpected happened: {}".format(e)
-            )
+            raise CommandError(f"Something unexpected happened: {e}")
         try:
             create_tool_definition(annotation)
         except Exception as e:
             raise CommandError(
-                "Creation of ToolDefinition failed. Database "
-                "rolled back to its state before this "
-                "ToolDefinition's attempted creation: {}".format(e)
+                f"Creation of ToolDefinition failed. Database rolled back to its state before this ToolDefinition's attempted creation: {e}"
             )

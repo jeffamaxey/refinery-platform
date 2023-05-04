@@ -25,34 +25,28 @@ class Command(BaseCommand):
 def create_public_group():
     """Create public group"""
     sys.stdout.write(
-        "Creating public group '{}' for Refinery. Edit "
-        "'REFINERY_PUBLIC_GROUP_NAME' in your settings to choose another "
-        "name or 'REFINERY_PUBLIC_GROUP_ID' to choose another id.".format(
-            settings.REFINERY_PUBLIC_GROUP_NAME))
+        f"Creating public group '{settings.REFINERY_PUBLIC_GROUP_NAME}' for Refinery. Edit 'REFINERY_PUBLIC_GROUP_NAME' in your settings to choose another name or 'REFINERY_PUBLIC_GROUP_ID' to choose another id."
+    )
     # a. test if there is already a "group" of the same name
     if Group.objects.filter(
             name__exact=settings.REFINERY_PUBLIC_GROUP_NAME).count() > 0:
         sys.stdout.write(
-            "A (standard) Django group named '{}' already exists.".format(
-                settings.REFINERY_PUBLIC_GROUP_NAME)
+            f"A (standard) Django group named '{settings.REFINERY_PUBLIC_GROUP_NAME}' already exists."
         )
     elif Group.objects.filter(
             id=settings.REFINERY_PUBLIC_GROUP_ID).count() > 0:
         sys.stdout.write(
-            "A (standard) Django group with id '{}' already exists.".format(
-                settings.REFINERY_PUBLIC_GROUP_ID)
+            f"A (standard) Django group with id '{settings.REFINERY_PUBLIC_GROUP_ID}' already exists."
         )
     elif ExtendedGroup.objects.filter(
             name__exact=settings.REFINERY_PUBLIC_GROUP_NAME).count() > 0:
         sys.stdout.write(
-            "A Refinery group named '{}' already exists.".format(
-                settings.REFINERY_PUBLIC_GROUP_NAME)
+            f"A Refinery group named '{settings.REFINERY_PUBLIC_GROUP_NAME}' already exists."
         )
     elif ExtendedGroup.objects.filter(
             name__exact=settings.REFINERY_PUBLIC_GROUP_ID).count() > 0:
         sys.stdout.write(
-            "A Refinery group with id '{}' already exists.".format(
-                settings.REFINERY_PUBLIC_GROUP_ID)
+            f"A Refinery group with id '{settings.REFINERY_PUBLIC_GROUP_ID}' already exists."
         )
     else:
         ExtendedGroup.objects.create(
@@ -65,6 +59,6 @@ def create_public_group():
         with connection.cursor() as cursor:
             cursor.execute("SELECT setval(\'auth_group_id_seq\', %s )",
                            (settings.REFINERY_PUBLIC_GROUP_ID,))
-        sys.stdout.write("Successfully created group '{}'.".format(
-            settings.REFINERY_PUBLIC_GROUP_NAME)
+        sys.stdout.write(
+            f"Successfully created group '{settings.REFINERY_PUBLIC_GROUP_NAME}'."
         )

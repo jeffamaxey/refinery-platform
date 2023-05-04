@@ -57,7 +57,7 @@ class APIV2TestCase(APITestCase):
 
         self.factory = APIRequestFactory()
         self.client = APIClient()
-        self.url_root = '/api/v2/{}'.format(kwargs.get("api_base_name"))
+        self.url_root = f'/api/v2/{kwargs.get("api_base_name")}'
         self.view = kwargs.get("view")
 
         self.client.login(username=self.username, password=self.password)
@@ -758,15 +758,13 @@ class DataSetApiV2Tests(APIV2TestCase):
         email = view_set.send_transfer_notification_email(self.user,
                                                           new_owner, groups)
         self.assertIn(
-            'http://{}/users/{}'.format(
-                view_set.current_site, self.user.profile.uuid
-            ),
-            email.body)
+            f'http://{view_set.current_site}/users/{self.user.profile.uuid}',
+            email.body,
+        )
         self.assertIn(
-            'http://{}/users/{}'.format(
-                view_set.current_site, new_owner.profile.uuid
-            ),
-            email.body)
+            f'http://{view_set.current_site}/users/{new_owner.profile.uuid}',
+            email.body,
+        )
 
     def test_send_transfer_notification_email_sends_data_set(self):
         new_owner_email = 'new_owner@example.com'
@@ -809,8 +807,7 @@ class DataSetApiV2Tests(APIV2TestCase):
         )
         self.assertEqual(
             groups.get('groups_without_access')[0].get('profile'),
-            'http://{}/groups/{}'.format(view_set.current_site,
-                                         group_non_union.extendedgroup.uuid)
+            f'http://{view_set.current_site}/groups/{group_non_union.extendedgroup.uuid}',
         )
 
     def test_update_group_perms_retains_access(self):
@@ -833,8 +830,7 @@ class DataSetApiV2Tests(APIV2TestCase):
                          group_union.extendedgroup.name)
         self.assertEqual(
             groups.get('groups_with_access')[0].get('profile'),
-            'http://{}/groups/{}'.format(view_set.current_site,
-                                         group_union.extendedgroup.uuid)
+            f'http://{view_set.current_site}/groups/{group_union.extendedgroup.uuid}',
         )
 
     def test_update_group_perms_retains_public(self):
@@ -857,8 +853,7 @@ class DataSetApiV2Tests(APIV2TestCase):
         )
         self.assertEqual(
             groups.get('groups_with_access')[0].get('profile'),
-            'http://{}/groups/{}'.format(view_set.current_site,
-                                         group_public.extendedgroup.uuid)
+            f'http://{view_set.current_site}/groups/{group_public.extendedgroup.uuid}',
         )
 
     def test_get_data_set_is_clean(self):
@@ -1558,7 +1553,7 @@ class InvitationApiV2Tests(APIV2TestCase):
         patch_response = self.patch_view(patch_request, self.invite.id)
         # drf formatting to isoformat
         isoformat = datetime.isoformat(previous_invite_expire)
-        drf_isoformat_previous_expire = isoformat[:-6] + 'Z'
+        drf_isoformat_previous_expire = f'{isoformat[:-6]}Z'
         self.assertGreater(patch_response.data.get('expires'),
                            drf_isoformat_previous_expire)
 
@@ -1953,13 +1948,13 @@ class SiteProfileApiV2Tests(APIV2TestCase):
         username = password = "admin"
         self.admin_user = User.objects.create_superuser(username, '', password)
         self.get_request_current_true = self.factory.get(
-            self.url_root + '?current_site=True'
+            f'{self.url_root}?current_site=True'
         )
         self.get_request_current_false = self.factory.get(
-            self.url_root + '?current_site=false'
+            f'{self.url_root}?current_site=false'
         )
         self.get_request_current_foo = self.factory.get(
-            self.url_root + '?current_site=foo'
+            f'{self.url_root}?current_site=foo'
         )
         self.get_request_no_params = self.factory.get(self.url_root)
 
@@ -2142,18 +2137,14 @@ class UserViewTest(TestCase):
         self.client = Client()
 
     def test_returns_200_status_with_correct_template(self):
-        get_request = self.client.get(
-            'users/{}/'.format(self.user.profile.uuid)
-        )
+        get_request = self.client.get(f'users/{self.user.profile.uuid}/')
         get_request.user = self.user
         with self.assertTemplateUsed('core/user.html'):
             response = user(get_request, self.user.username)
             self.assertEqual(response.status_code, 200)
 
     def test_raises_404_status_for_anon(self):
-        get_request = self.client.get(
-            'users/{}/'.format(self.user.profile.uuid)
-        )
+        get_request = self.client.get(f'users/{self.user.profile.uuid}/')
         get_request.user = get_anonymous_user()
         with self.assertRaises(Http404):
             user(get_request, '')

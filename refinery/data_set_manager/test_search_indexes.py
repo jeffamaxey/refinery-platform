@@ -59,17 +59,14 @@ class NodeIndexTests(APITestCase):
 
     def _prepare_node_index(self, node):
         data = NodeIndex().prepare(node)
-        data = dict(
-            (
-                re.sub(r'\d+', '#', key),
-                re.sub(r'\d+', '#', value) if
-                type(value) == str and
-                key != 'REFINERY_DOWNLOAD_URL_s' and
-                'uuid' not in key
-                else value
-            )
+        data = {
+            re.sub(r'\d+', '#', key): re.sub(r'\d+', '#', value)
+            if type(value) == str
+            and key != 'REFINERY_DOWNLOAD_URL_s'
+            and 'uuid' not in key
+            else value
             for (key, value) in data.items()
-        )
+        }
         return data
 
     def _assert_node_index_prepared_correctly(self, data_to_be_indexed,
@@ -208,9 +205,9 @@ class NodeIndexTests(APITestCase):
             node=self.node,
             direction=direction,
             step=1,
-            name="{} Analysis Node Connection".format(direction),
+            name=f"{direction} Analysis Node Connection",
             filename="test.txt",
-            is_refinery_file=is_refinery_file
+            is_refinery_file=is_refinery_file,
         )
 
     def test_prepare_node_with_non_exposed_input_node_connection_isnt_skipped(

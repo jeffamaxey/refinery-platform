@@ -168,18 +168,17 @@ class FileStoreItem(models.Model):
         try:
             return self.datafile.url
         except ValueError:  # no datafile
-            if core.utils.is_absolute_url(self.source):
-                if self.source.startswith('s3://'):
-                    return None  # file is in the UPLOAD_BUCKET
-                return self.source
-            else:
+            if not core.utils.is_absolute_url(self.source):
                 return None
+            return None if self.source.startswith('s3://') else self.source
 
     def get_import_status(self):
         """Return file import task state"""
-        if not self.import_task_id:
-            return constants.NOT_AVAILABLE
-        return celery.result.AsyncResult(self.import_task_id).state
+        return (
+            celery.result.AsyncResult(self.import_task_id).state
+            if self.import_task_id
+            else constants.NOT_AVAILABLE
+        )
 
     def terminate_file_import_task(self):
         if self.import_task_id:

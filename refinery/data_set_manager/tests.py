@@ -47,14 +47,11 @@ class IsaTabTestBase(TestCase):
         }
         url = self.isa_tab_import_url
         if data_set_uuid is not None:
-            url += "?data_set_uuid={}".format(data_set_uuid)
+            url += f"?data_set_uuid={data_set_uuid}"
 
-        response = self.client.post(
-            url,
-            data=post_data,
-            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        return self.client.post(
+            url, data=post_data, HTTP_X_REQUESTED_WITH='XMLHttpRequest'
         )
-        return response
 
 
 @override_settings(
@@ -108,7 +105,7 @@ class MetadataImportTestBase(IsaTabTestBase):
             }
             url = "/data_set_manager/import/metadata-table-form/"
             if data_set_uuid is not None:
-                url += "?data_set_uuid={}".format(data_set_uuid)
+                url += f"?data_set_uuid={data_set_uuid}"
 
             response = self.client.post(
                 url,

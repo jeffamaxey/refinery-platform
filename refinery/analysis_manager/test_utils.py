@@ -21,19 +21,14 @@ class AnalysisConfigTests(TestCase):
                                  valid_study_uuid=True,
                                  valid_user_id=True,
                                  valid_workflow_uuid=True):
-        analysis_config = {}
         analysis_type_uuid = (
             str(uuid.uuid4()) if valid_analysis_type_uuid else ""
         )
-        analysis_config["tool_uuid"] = analysis_type_uuid
-
-        analysis_config["name"] = (
-            "Valid Custom Name" if valid_name else []
-        )
-        analysis_config["study_uuid"] = (
-            str(uuid.uuid4()) if valid_study_uuid else ""
-        )
-
+        analysis_config = {
+            "tool_uuid": analysis_type_uuid,
+            "name": "Valid Custom Name" if valid_name else [],
+            "study_uuid": str(uuid.uuid4()) if valid_study_uuid else "",
+        }
         analysis_config["user_id"] = 1 if valid_user_id else ""
 
         analysis_config["workflow_uuid"] = (

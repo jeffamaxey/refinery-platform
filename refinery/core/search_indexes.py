@@ -58,9 +58,8 @@ class DataSetIndex(indexes.SearchIndex, indexes.Indexable):
     def prepare_access(self, object):
         access_list = []
         if object.get_owner() is not None:
-            access_list.append('u_{}'.format(object.get_owner().id))
-        for group_id in object.get_group_ids():
-            access_list.append('g_{}'.format(group_id))
+            access_list.append(f'u_{object.get_owner().id}')
+        access_list.extend(f'g_{group_id}' for group_id in object.get_group_ids())
         return access_list
 
     def prepare_submitter(self, object):
@@ -69,26 +68,16 @@ class DataSetIndex(indexes.SearchIndex, indexes.Indexable):
         if investigation is None:
             return []
 
-        submitters = []
-
-        for contact in investigation.contact_set.all():
-            submitters.append(
-                "{}, {}".format(
-                    contact.last_name,
-                    contact.first_name
-                )
-            )
-
+        submitters = [
+            f"{contact.last_name}, {contact.first_name}"
+            for contact in investigation.contact_set.all()
+        ]
         studies = investigation.study_set.all()
         for study in studies:
-            for contact in study.contact_set.all():
-                submitters.append(
-                    "{}, {}".format(
-                        contact.last_name,
-                        contact.first_name
-                    )
-                )
-
+            submitters.extend(
+                f"{contact.last_name}, {contact.first_name}"
+                for contact in study.contact_set.all()
+            )
         # Cast to `list` looks redundant, but MultiValueField stores sets
         # improperly, introducing a search bug.
         # https://github.com/refinery-platform/refinery-platform/pull/1716#discussion_r115339987
@@ -104,9 +93,7 @@ class DataSetIndex(indexes.SearchIndex, indexes.Indexable):
 
         studies = investigation.study_set.all()
         for study in studies:
-            for assay in study.assay_set.all():
-                measurements.append(assay.measurement)
-
+            measurements.extend(assay.measurement for assay in study.assay_set.all())
         # Cast to `list` looks redundant, but MultiValueField stores sets
         # improperly, introducing a search bug.
         # https://github.com/refinery-platform/refinery-platform/pull/1716#discussion_r115339987
@@ -122,9 +109,7 @@ class DataSetIndex(indexes.SearchIndex, indexes.Indexable):
 
         studies = investigation.study_set.all()
         for study in studies:
-            for assay in study.assay_set.all():
-                technologies.append(assay.technology)
-
+            technologies.extend(assay.technology for assay in study.assay_set.all())
         # Cast to `list` looks redundant, but MultiValueField stores sets
         # improperly, introducing a search bug.
         # https://github.com/refinery-platform/refinery-platform/pull/1716#discussion_r115339987
@@ -191,10 +176,10 @@ class ProjectIndex(indexes.SearchIndex, indexes.Indexable):
     def prepare_access(self, object):
         access_list = []
         if object.get_owner() is not None:
-            access_list.append('u_{}'.format(object.get_owner().id))
-        for group in object.get_groups():
-            if id in group:
-                access_list.append('g_{}'.format(group.id))
+            access_list.append(f'u_{object.get_owner().id}')
+        access_list.extend(
+            f'g_{group.id}' for group in object.get_groups() if id in group
+        )
         return access_list
 
     def index_queryset(self, using=None):

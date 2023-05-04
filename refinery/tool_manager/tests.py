@@ -197,9 +197,12 @@ class ToolManagerTestBase(ToolManagerMocks):
             source='http://www.example.com/test_file.txt'
         )
 
-        self.node = Node.objects.create(name="Node {}".format(uuid.uuid4()),
-                                        assay=self.assay, study=self.study,
-                                        file_item=self.file_store_item)
+        self.node = Node.objects.create(
+            name=f"Node {uuid.uuid4()}",
+            assay=self.assay,
+            study=self.study,
+            file_item=self.file_store_item,
+        )
 
         self.mock_get_workflows_reference = (
             'tool_manager.management.commands.load_tools.get_workflows'
@@ -248,11 +251,7 @@ class ToolManagerTestBase(ToolManagerMocks):
         self.GOOD_WORKFLOW_OUTPUTS = {WorkflowTool.WORKFLOW_OUTPUTS: [True]}
 
     @mock.patch("django_docker_engine.docker_utils.DockerClientWrapper.pull")
-    def load_visualizations(
-        self,
-        docker_pull_mock,
-        visualizations=["{}/visualizations/igv.json".format(TEST_DATA_PATH)]
-    ):
+    def load_visualizations(self, docker_pull_mock, visualizations=[f"{TEST_DATA_PATH}/visualizations/igv.json"]):
         call_command("load_tools", "--visualizations",
                      " ".join(visualizations))
         return visualizations
@@ -339,9 +338,7 @@ class ToolManagerTestBase(ToolManagerMocks):
             self.post_data["display_name"] = display_name
 
         if file_relationships is None:
-            self.post_data[Tool.FILE_RELATIONSHIPS] = "[{}]".format(
-                self.node.uuid
-            )
+            self.post_data[Tool.FILE_RELATIONSHIPS] = f"[{self.node.uuid}]"
         else:
             self.post_data[Tool.FILE_RELATIONSHIPS] = file_relationships
 
@@ -374,7 +371,7 @@ class ToolManagerTestBase(ToolManagerMocks):
             ):
                 self.post_response = self.tools_view(self.post_request)
                 assert self.post_response.status_code == 200, \
-                    self.post_response.content
+                        self.post_response.content
 
             self.tool = WorkflowTool.objects.get(
                 tool_definition__uuid=self.td.uuid
@@ -408,14 +405,11 @@ class ToolManagerTestBase(ToolManagerMocks):
     def create_vis_tool_definition(self, annotation_file_name=None,
                                    create_unique_name=False):
         if annotation_file_name:
-            self.tool_annotation = "{}/visualizations/{}".format(
-                TEST_DATA_PATH,
-                annotation_file_name
+            self.tool_annotation = (
+                f"{TEST_DATA_PATH}/visualizations/{annotation_file_name}"
             )
         else:
-            self.tool_annotation = "{}/visualizations/igv.json".format(
-                TEST_DATA_PATH
-            )
+            self.tool_annotation = f"{TEST_DATA_PATH}/visualizations/igv.json"
         with open(self.tool_annotation) as f:
             self.tool_annotation_dict = json.loads(f.read())
 
@@ -435,14 +429,9 @@ class ToolManagerTestBase(ToolManagerMocks):
     def create_workflow_tool_definition(self, annotation_file_name=None,
                                         create_unique_name=False):
         if annotation_file_name:
-            self.tool_annotation = "{}/workflows/{}".format(
-                TEST_DATA_PATH,
-                annotation_file_name
-            )
+            self.tool_annotation = f"{TEST_DATA_PATH}/workflows/{annotation_file_name}"
         else:
-            self.tool_annotation = "{}/workflows/LIST.json".format(
-                TEST_DATA_PATH
-            )
+            self.tool_annotation = f"{TEST_DATA_PATH}/workflows/LIST.json"
 
         with open(self.tool_annotation) as f:
             self.tool_annotation_data = json.loads(f.read())
@@ -456,22 +445,20 @@ class ToolManagerTestBase(ToolManagerMocks):
             self.td = create_tool_definition(self.tool_annotation_data)
 
     def create_mock_file_relationships(self):
-        self.LIST_BASIC = "[{}]".format(self.make_node())
-        self.LIST = "[{}, {}, {}, {}]".format(
-            *[self.make_node() for i in range(0, 4)]
-        )
+        self.LIST_BASIC = f"[{self.make_node()}]"
+        self.LIST = "[{}, {}, {}, {}]".format(*[self.make_node() for _ in range(0, 4)])
         self.LIST_LIST = "[[{}, {}], [{}, {}]]".format(
-            *[self.make_node() for i in range(0, 4)]
+            *[self.make_node() for _ in range(0, 4)]
         )
         self.LIST_PAIR = "[({}, {}), ({}, {})]".format(
-            *[self.make_node() for i in range(0, 4)]
+            *[self.make_node() for _ in range(0, 4)]
         )
-        self.PAIR = "({}, {})".format(*[self.make_node() for i in range(0, 2)])
+        self.PAIR = "({}, {})".format(*[self.make_node() for _ in range(0, 2)])
         self.LIST_LIST_PAIR = "[[({}, {}), ({}, {})]]".format(
-            *[self.make_node() for i in range(0, 4)]
+            *[self.make_node() for _ in range(0, 4)]
         )
         self.PAIR_LIST = "([{}, {}], [{}, {}])".format(
-            *[self.make_node() for i in range(0, 4)]
+            *[self.make_node() for _ in range(0, 4)]
         )
 
     def make_node(self, source="http://www.example.com/test_file.txt"):
@@ -479,10 +466,13 @@ class ToolManagerTestBase(ToolManagerMocks):
         test_file.write('Coffee is really great.\n')
         self.file_store_item = FileStoreItem.objects.create(source=source)
 
-        node = NodeFactory(name="Node {}".format(uuid.uuid4()),
-                           assay=self.assay, study=self.study,
-                           type=Node.RAW_DATA_FILE,
-                           file_item=self.file_store_item)
+        node = NodeFactory(
+            name=f"Node {uuid.uuid4()}",
+            assay=self.assay,
+            study=self.study,
+            type=Node.RAW_DATA_FILE,
+            file_item=self.file_store_item,
+        )
         attribute = AttributeFactory(node=node, type=Attribute.CHARACTERISTICS,
                                      subtype='coffee', value='coffee')
         AnnotatedNodeFactory(node_id=node.id, attribute_id=attribute.id,
@@ -501,16 +491,13 @@ class ToolManagerTestBase(ToolManagerMocks):
         galaxy_to_refinery_mapping_list as it would be if we were
         interacting with an actual Galaxy instance
         """
-        galaxy_to_refinery_mapping_list = []
-        for node in self.tool._get_input_nodes():
-            galaxy_to_refinery_mapping_list.append(
-                {
-                    WorkflowTool.GALAXY_DATASET_HISTORY_ID:
-                        self.FAKE_DATASET_HISTORY_ID,
-                    Tool.REFINERY_FILE_UUID: node.file_item.uuid,
-                }
-            )
-
+        galaxy_to_refinery_mapping_list = [
+            {
+                WorkflowTool.GALAXY_DATASET_HISTORY_ID: self.FAKE_DATASET_HISTORY_ID,
+                Tool.REFINERY_FILE_UUID: node.file_item.uuid,
+            }
+            for node in self.tool._get_input_nodes()
+        ]
         with mock.patch.object(
                 celery.result.TaskSetResult, 'join',
                 return_value=galaxy_to_refinery_mapping_list
@@ -536,10 +523,7 @@ class ToolManagerTestBase(ToolManagerMocks):
             self.tools_url_root,
             data=request_params
         )
-        force_authenticate(
-            self.get_request,
-            self.user if not user else user
-        )
+        force_authenticate(self.get_request, user if user else self.user)
         self.get_response = self.tools_view(self.get_request)
 
 
@@ -638,23 +622,22 @@ class ToolTests(ToolManagerTestBase):
             self.get_response.data[0]["owner"],
             {
                 "username": self.user.username,
-                "full_name": "{} {}".format(self.user.first_name,
-                                            self.user.last_name),
-                "user_profile_uuid": str(self.user.profile.uuid)
-            }
+                "full_name": f"{self.user.first_name} {self.user.last_name}",
+                "user_profile_uuid": str(self.user.profile.uuid),
+            },
         )
 
     def test_relaunch_url(self):
         self.create_tool(ToolDefinition.VISUALIZATION)
-        self.assertEqual(self.tool.relaunch_url,
-                         "/api/v2/tools/{}/relaunch/".format(self.tool.uuid))
+        self.assertEqual(
+            self.tool.relaunch_url, f"/api/v2/tools/{self.tool.uuid}/relaunch/"
+        )
 
     def test_get_relative_container_url(self):
         self.create_tool(ToolDefinition.VISUALIZATION)
         self.assertEqual(
             self.tool.get_relative_container_url(),
-            "/{}/{}".format(settings.DJANGO_DOCKER_ENGINE_BASE_URL,
-                            self.tool.container_name)
+            f"/{settings.DJANGO_DOCKER_ENGINE_BASE_URL}/{self.tool.container_name}",
         )
 
     def test_is_workflow(self):
@@ -761,22 +744,17 @@ class VisualizationToolTests(ToolManagerTestBase):
         self.assertEqual(
             tool_input_dict,
             {
-                VisualizationTool.API_PREFIX:
-                    self.tool.get_relative_container_url() + "/",
+                VisualizationTool.API_PREFIX: f"{self.tool.get_relative_container_url()}/",
                 Tool.FILE_RELATIONSHIPS: file_relationships,
-                VisualizationTool.INPUT_NODE_INFORMATION:
-                    self.tool._get_detailed_nodes_dict(
-                        self.tool.get_input_node_uuids()
-                    ),
-                VisualizationTool.ALL_NODE_INFORMATION:
-                    self.tool._get_detailed_nodes_dict(
-                        self.tool.dataset.get_node_uuids()
-                    ),
-                ToolDefinition.PARAMETERS:
-                    self.tool._get_visualization_parameters(),
-                ToolDefinition.EXTRA_DIRECTORIES:
-                    self.tool.tool_definition.get_extra_directories()
-            }
+                VisualizationTool.INPUT_NODE_INFORMATION: self.tool._get_detailed_nodes_dict(
+                    self.tool.get_input_node_uuids()
+                ),
+                VisualizationTool.ALL_NODE_INFORMATION: self.tool._get_detailed_nodes_dict(
+                    self.tool.dataset.get_node_uuids()
+                ),
+                ToolDefinition.PARAMETERS: self.tool._get_visualization_parameters(),
+                ToolDefinition.EXTRA_DIRECTORIES: self.tool.tool_definition.get_extra_directories(),
+            },
         )
         self.assertTrue(self.search_solr_mock.called)
 
@@ -876,7 +854,7 @@ class WorkflowToolTests(ToolManagerTestBase):
         )
         self.assertEqual(
             self.collection_description.type,
-            "{}:{}".format(WorkflowTool.LIST, WorkflowTool.PAIRED)
+            f"{WorkflowTool.LIST}:{WorkflowTool.PAIRED}",
         )
         self.assertEqual(
             len(self.collection_description.elements),
@@ -929,7 +907,7 @@ class WorkflowToolTests(ToolManagerTestBase):
         )
         self.assertEqual(
             self.collection_description.type,
-            "{}:{}".format(WorkflowTool.PAIRED, WorkflowTool.LIST)
+            f"{WorkflowTool.PAIRED}:{WorkflowTool.LIST}",
         )
 
         self.assertEqual(len(self.collection_description.elements), 2)
@@ -946,11 +924,7 @@ class WorkflowToolTests(ToolManagerTestBase):
         )
         self.assertEqual(
             self.collection_description.type,
-            "{}:{}:{}".format(
-                WorkflowTool.LIST,
-                WorkflowTool.LIST,
-                WorkflowTool.PAIRED
-            )
+            f"{WorkflowTool.LIST}:{WorkflowTool.LIST}:{WorkflowTool.PAIRED}",
         )
 
         self.assertEqual(len(self.collection_description.elements), 1)
@@ -991,10 +965,7 @@ class WorkflowToolTests(ToolManagerTestBase):
         )
         self.assertEqual(
             self.tool.galaxy_collection_type,
-            "{}:{}".format(
-                WorkflowTool.LIST,
-                WorkflowTool.PAIRED
-            )
+            f"{WorkflowTool.LIST}:{WorkflowTool.PAIRED}",
         )
 
     def test_galaxy_collection_type_pair_list(self):
@@ -1004,10 +975,7 @@ class WorkflowToolTests(ToolManagerTestBase):
         )
         self.assertEqual(
             self.tool.galaxy_collection_type,
-            "{}:{}".format(
-                WorkflowTool.PAIRED,
-                WorkflowTool.LIST
-            )
+            f"{WorkflowTool.PAIRED}:{WorkflowTool.LIST}",
         )
 
     def test_galaxy_collection_type_list_list_pair(self):
@@ -1017,11 +985,7 @@ class WorkflowToolTests(ToolManagerTestBase):
         )
         self.assertEqual(
             self.tool.galaxy_collection_type,
-            "{}:{}:{}".format(
-                WorkflowTool.LIST,
-                WorkflowTool.LIST,
-                WorkflowTool.PAIRED
-            )
+            f"{WorkflowTool.LIST}:{WorkflowTool.LIST}:{WorkflowTool.PAIRED}",
         )
 
     def test_galaxy_collection_type_list(self):
@@ -1266,30 +1230,27 @@ class WorkflowToolTests(ToolManagerTestBase):
                 self.tool.FILE_UUID_LIST: [self.node.file_item.uuid],
                 "dataset_uuid": self.dataset.uuid,
                 "tool_definition_uuid": self.td.uuid,
-                Tool.FILE_RELATIONSHIPS: "[{}]".format(self.node.uuid),
-                self.tool.FILE_RELATIONSHIPS_URLS:
-                    "['http://www.example.com/test_file.txt']",
+                Tool.FILE_RELATIONSHIPS: f"[{self.node.uuid}]",
+                self.tool.FILE_RELATIONSHIPS_URLS: "['http://www.example.com/test_file.txt']",
                 ToolDefinition.PARAMETERS: parameters_dict_with_uuids,
                 WorkflowTool.GALAXY_DATA: {
                     WorkflowTool.FILE_RELATIONSHIPS_GALAXY: (
-                        str(
-                            self.tool.get_galaxy_file_relationships()
-                        ).replace("'", '"')
+                        str(self.tool.get_galaxy_file_relationships()).replace(
+                            "'", '"'
+                        )
                     ),
                     WorkflowTool.GALAXY_TO_REFINERY_MAPPING_LIST: [
                         {
-                            self.tool.GALAXY_DATASET_HISTORY_ID:
-                                self.FAKE_DATASET_HISTORY_ID,
-                            self.tool.REFINERY_FILE_UUID:
-                                self.node.file_item.uuid,
-                            WorkflowTool.ANALYSIS_GROUP: 0
+                            self.tool.GALAXY_DATASET_HISTORY_ID: self.FAKE_DATASET_HISTORY_ID,
+                            self.tool.REFINERY_FILE_UUID: self.node.file_item.uuid,
+                            WorkflowTool.ANALYSIS_GROUP: 0,
                         }
                     ],
                     WorkflowTool.GALAXY_WORKFLOW_INVOCATION_DATA: {
                         "id": self.GALAXY_ID_MOCK
                     },
-                }
-            }
+                },
+            },
         )
         self.assertTrue(tool_data_mock.called)
 
@@ -1571,8 +1532,8 @@ class WorkflowToolTests(ToolManagerTestBase):
         )
         self.assertGreater(output_connections.count(), 0)
         for output_connection in output_connections:
-            output_connection_filename = "{}.{}".format(
-                output_connection.name, output_connection.filetype
+            output_connection_filename = (
+                f"{output_connection.name}.{output_connection.filetype}"
             )
             analysis_results = self.tool.analysis.results.filter(
                 file_name=output_connection_filename
@@ -1754,13 +1715,13 @@ class WorkflowToolLaunchTests(ToolManagerTestBase):
         self.assertTrue(ready_mock.called)
         self.assertTrue(successful_mock.called)
 
-    @mock.patch("{}._refinery_file_import".format(tasks_mock))
-    @mock.patch("{}._run_galaxy_file_import".format(tasks_mock))
-    @mock.patch("{}._run_galaxy_workflow".format(tasks_mock))
-    @mock.patch("{}._check_galaxy_history_state".format(tasks_mock))
-    @mock.patch("{}._galaxy_file_export".format(tasks_mock))
-    @mock.patch("{}._attach_workflow_outputs".format(tasks_mock))
-    @mock.patch("{}._finalize_analysis".format(tasks_mock))
+    @mock.patch(f"{tasks_mock}._refinery_file_import")
+    @mock.patch(f"{tasks_mock}._run_galaxy_file_import")
+    @mock.patch(f"{tasks_mock}._run_galaxy_workflow")
+    @mock.patch(f"{tasks_mock}._check_galaxy_history_state")
+    @mock.patch(f"{tasks_mock}._galaxy_file_export")
+    @mock.patch(f"{tasks_mock}._attach_workflow_outputs")
+    @mock.patch(f"{tasks_mock}._finalize_analysis")
     def test_appropriate_methods_are_called_for_analysis_run(
             self,
             attach_workflow_outputs_mock,
@@ -2268,10 +2229,8 @@ class VisualizationToolLaunchTests(ToolManagerTestBase):
             tool.launch()
 
         self.assertIn(
-            "Input Node limit of: {} reached".format(
-                constants.REFINERY_SOLR_DOC_LIMIT
-            ),
-            str(context.exception)
+            f"Input Node limit of: {constants.REFINERY_SOLR_DOC_LIMIT} reached",
+            str(context.exception),
         )
 
     def test_visualization_tool_creation_with_custom_display_name(self):

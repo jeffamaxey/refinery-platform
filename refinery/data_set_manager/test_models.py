@@ -137,7 +137,7 @@ class NodeClassMethodTests(TestCase):
 
     def test_get_auxiliary_node_uuids(self):
         self.assertEqual(self.node.get_children(), [])
-        for i in range(2):
+        for _ in range(2):
             self.node.create_and_associate_auxiliary_node(self.filestore_item)
             # Still just one child even on second time
             self.assertEqual(len(self.node.get_children()), 1)
